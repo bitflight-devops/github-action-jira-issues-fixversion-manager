@@ -14,7 +14,7 @@ This action will add the supplied list of FixVersions to the list of Jira Issue 
 <!-- start usage -->
 
 ```yaml
-- uses: bitflight-devops/github-action-jira-issues-fixversion-manager@v1.0.6
+- uses: bitflight-devops/github-action-jira-issues-fixversion-manager@v1.0.0
   with:
     # The github token used for authenticating to GitHub
     token: ''
