@@ -62,17 +62,17 @@ This action will add the supplied list of FixVersions to the list of Jira Issue 
 <!-- start inputs -->
 
 | **Input**                    | **Description**                                                                                                                                                                  | **Default** | **Required** |
-| :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: |
-| **`token`**                  | The github token used for authenticating to GitHub                                                                                                                               |             |   **true**   |
-| **`fix_versions`**           | A comma-separated list of FixVersions, if the FixVersion doesn't exist it will be created                                                                                        |             |   **true**   |
-| **`issues`**                 | A comma-separated list of Jira issue keys                                                                                                                                        |             |   **true**   |
-| **`projects`**               | A comma separated list of project names to include in the results by, i.e. DEVOPS,PROJECT1                                                                                       |             |  **false**   |
-| **`projects_ignore`**        | A comma separated list of project names to exclude from the results by, i.e. INTERNAL,PROJECT2                                                                                   |             |  **false**   |
-| **`include_merge_messages`** | When parsing commit messages, include merge and pull messages. This is disabled by default, to exclude tickets that may be included or fixed in other branches or pull requests. |   `false`   |  **false**   |
-| **`jira_base_url`**          | The Jira cloud base url including protocol i.e. 'https://company.atlassian.net' or use environment variable JIRA_BASE_URL                                                        |             |  **false**   |
-| **`jira_user_email`**        | The Jira cloud user email address or use environment variable JIRA_USER_EMAIL                                                                                                    |             |  **false**   |
-| **`jira_api_token`**         | The Jira cloud user api token or use environment variable JIRA_API_TOKEN                                                                                                         |             |  **false**   |
-| **`fail_on_error`**          | If there is an error during transition, the action will error out.                                                                                                               |   `false`   |  **false**   |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------ |
+| **`token`**                  | The github token used for authenticating to GitHub                                                                                                                               |             | **true**     |
+| **`fix_versions`**           | A comma-separated list of FixVersions, if the FixVersion doesn't exist it will be created                                                                                        |             | **true**     |
+| **`issues`**                 | A comma-separated list of Jira issue keys                                                                                                                                        |             | **true**     |
+| **`projects`**               | A comma separated list of project names to include in the results by, i.e. DEVOPS,PROJECT1                                                                                       |             | **false**    |
+| **`projects_ignore`**        | A comma separated list of project names to exclude from the results by, i.e. INTERNAL,PROJECT2                                                                                   |             | **false**    |
+| **`include_merge_messages`** | When parsing commit messages, include merge and pull messages. This is disabled by default, to exclude tickets that may be included or fixed in other branches or pull requests. | `false`     | **false**    |
+| **`jira_base_url`**          | The Jira cloud base url including protocol i.e. 'https://company.atlassian.net' or use environment variable JIRA_BASE_URL                                                        |             | **false**    |
+| **`jira_user_email`**        | The Jira cloud user email address or use environment variable JIRA_USER_EMAIL                                                                                                    |             | **false**    |
+| **`jira_api_token`**         | The Jira cloud user api token or use environment variable JIRA_API_TOKEN                                                                                                         |             | **false**    |
+| **`fail_on_error`**          | If there is an error during transition, the action will error out.                                                                                                               | `false`     | **false**    |
 
 <!-- end inputs -->
 

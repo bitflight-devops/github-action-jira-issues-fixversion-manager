@@ -1,26 +1,36 @@
-export const issueIdRegEx = /([a-zA-Z0-9]+-[0-9]+)/g
+export const issueIdRegEx = /([\dA-Za-z]+-\d+)/g;
 
-export function nullIfEmpty(str: string[] | undefined | null): string[] | null {
-  if (!str) {
-    return null
+export function isError(error: any): error is NodeJS.ErrnoException {
+  return error instanceof Error;
+}
+export function toCommaDelimitedString(strSet?: Set<string> | IterableIterator<string> | string[]): string {
+  if (strSet) {
+    return [...strSet].join(',');
   }
-  if (str === []) {
-    return null
+  return '';
+}
+
+export function nullIfEmpty(str?: string[] | null): string[] | null {
+  if (!str || !Array.isArray(str)) {
+    return null;
+  }
+  if (str.length === 0) {
+    return null;
   }
   if (str[0] === '') {
-    return null
+    return null;
   }
-  return str
+  return str;
 }
 
 export function formatDate(date: string | number | Date): string {
-  var d = new Date(date),
-    month = `${d.getMonth() + 1}`,
-    day = `${d.getDate()}`,
-    year = `${d.getFullYear()}`
+  const d = new Date(date);
+  let month = `${d.getMonth() + 1}`;
+  let day = `${d.getDate()}`;
+  const year = d.getFullYear();
 
-  if (month.length < 2) month = '0' + month
-  if (day.length < 2) day = '0' + day
+  if (month.length < 2) month = `0${month}`;
+  if (day.length < 2) day = `0${day}`;
 
-  return [year, month, day].join('-')
+  return [year, month, day].join('-');
 }

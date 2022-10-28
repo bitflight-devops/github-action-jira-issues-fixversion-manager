@@ -1,30 +1,33 @@
-import * as core from '@actions/core'
-import {Version2Client} from 'jira.js'
-import {IssueBean, PageBeanVersion} from 'jira.js/out/version2/models'
+import * as core from '@actions/core';
+import { Version2Client } from 'jira.js';
+import { Issue as JiraIssue, PageVersion } from 'jira.js/out/version2/models';
 import {
   CreateVersion,
-  EditIssue,
   GetEditIssueMeta,
   GetIssue,
   GetProject,
-  GetProjectVersionsPaginated
-} from 'jira.js/out/version2/parameters'
+  GetProjectVersions,
+} from 'jira.js/out/version2/parameters';
 
-import {FixVersion, FixVersions, JiraConfig} from './@types'
-import {formatDate} from './utils'
+import { FixVersions, JiraConfig } from './@types';
+import { formatDate } from './utils';
 
 export default class Jira {
-  baseUrl: string
-  token: string
-  email: string
-  client: Version2Client
-  projectKeyToId: Map<string, number>
+  baseUrl: string;
+
+  token: string;
+
+  email: string;
+
+  client: Version2Client;
+
+  projectKeyToId: Map<string, number>;
 
   constructor(conf: JiraConfig) {
-    this.baseUrl = conf.baseUrl
-    this.token = conf.token
-    this.email = conf.email
-    this.projectKeyToId = new Map<string, number>()
+    this.baseUrl = conf.baseUrl;
+    this.token = conf.token;
+    this.email = conf.email;
+    this.projectKeyToId = new Map<string, number>();
     this.client = new Version2Client({
       host: this.baseUrl,
       telemetry: false,
@@ -33,187 +36,155 @@ export default class Jira {
           // username: this.email,
           // password: this.token
           email: this.email,
-          apiToken: this.token
-        }
-      }
-    })
+          apiToken: this.token,
+        },
+      },
+    });
   }
 
   async getIssue(
     issueId: string,
     query?: {
-      fields?: string[]
-      expand?: string
-    }
-  ): Promise<IssueBean> {
+      fields?: string[];
+      expand?: string;
+    },
+  ): Promise<JiraIssue> {
     const params: GetIssue = {
-      issueIdOrKey: issueId
-    }
+      issueIdOrKey: issueId,
+    };
     if (query) {
-      params.fields = query.fields || []
-      params.expand = query.expand || undefined
+      params.fields = query.fields || [];
+      params.expand = query.expand || undefined;
     }
 
-    return this.client.issues.getIssue(params)
+    return this.client.issues.getIssue(params);
   }
 
   async getIssueMetaData(issueId: string): Promise<object> {
     const params: GetEditIssueMeta = {
-      issueIdOrKey: issueId
-    }
-    return this.client.issues.getEditIssueMeta(params)
+      issueIdOrKey: issueId,
+    };
+    return this.client.issues.getEditIssueMeta(params);
   }
 
-  async hasFixVersion(projectIdOrKey: string, fixVersion: string): Promise<boolean> {
-    let params: GetProjectVersionsPaginated = {
-      projectIdOrKey: projectIdOrKey,
-      status: 'released,unreleased',
-      orderBy: 'sequence',
-      query: fixVersion,
-      startAt: -1,
-      maxResults: 100
-    }
-    core.debug(`Checking if Jira already has version '${fixVersion}'`)
+  async projectHasFixVersionsFromList(projectIdOrKey: string, fixVersions: string | string[]): Promise<string[]> {
+    const params: GetProjectVersions = {
+      projectIdOrKey,
+    };
+    const fixVersionsArray = Array.isArray(fixVersions) ? fixVersions : fixVersions.toUpperCase().split(',');
+    const fixVersionsExisting: string[] = [];
+    core.debug(`Checking if Jira already has versions '${fixVersions}'`);
 
-    let getNextPage = true
-    let pageBeanVersion: PageBeanVersion
-    while (getNextPage === true) {
-      pageBeanVersion = await this.client.projectVersions.getProjectVersionsPaginated(params)
-      if (
-        pageBeanVersion.total != undefined &&
-        params.startAt != undefined &&
-        pageBeanVersion.maxResults != undefined
-      ) {
-        params.startAt = params.startAt + Math.min(pageBeanVersion.total, pageBeanVersion.maxResults)
-        if (pageBeanVersion.values) {
-          for (const version of pageBeanVersion.values) {
-            core.debug(`Comparing Jira version '${version.name}' to '${fixVersion}'`)
-            if (version.name) {
-              if (version.name.toUpperCase() === fixVersion.toUpperCase()) {
-                core.debug(`Jira already has version '${version.name}'`)
-                return true
-              }
-            }
+    const pageVersion: PageVersion = await this.client.projectVersions.getProjectVersions(params);
+
+    if (pageVersion?.values && pageVersion.values.length > 0) {
+      for (const versionData of pageVersion.values) {
+        if (versionData.name) {
+          const versionNameUppercase: string = (versionData.name || '').toUpperCase();
+          core.debug(`Comparing Jira version '${versionData.name}' to '${fixVersionsArray.join(',')}'`);
+          if (fixVersionsArray.some((e) => e.toUpperCase() === versionNameUppercase)) {
+            core.debug(`Jira already has versionData '${versionNameUppercase}'`);
+            fixVersionsExisting.push(versionNameUppercase);
           }
         }
       }
-      getNextPage = pageBeanVersion && !pageBeanVersion.isLast
     }
-    core.debug(`Jira does not have version '${fixVersion}'`)
-    return false
+    if (fixVersionsExisting.length > 0) {
+      core.debug(`Jira already has versions '${fixVersionsExisting.join(',')}'`);
+    } else {
+      core.debug(`Jira does not have version '${fixVersionsArray.join(',')}'`);
+    }
+    return fixVersionsExisting;
   }
 
   async getProjectByKey(key: string): Promise<number | undefined> {
     if (this.projectKeyToId.has(key)) {
-      return this.projectKeyToId.get(key)
+      return this.projectKeyToId.get(key);
     }
-    let params: GetProject = {
+    const params: GetProject = {
       projectIdOrKey: key,
-      properties: ['id']
-    }
+      properties: ['id'],
+    };
     try {
-      const result = await this.client.projects.getProject(params)
+      const result = await this.client.projects.getProject(params);
       if (result.key && result.id) {
-        const id = Number.parseInt(result.id)
-        this.projectKeyToId.set(result.key, id)
-        return id
-      } else {
-        throw new Error('Project not found')
+        const id = Number.parseInt(result.id, 10);
+        this.projectKeyToId.set(result.key, id);
+        return id;
       }
-    } catch (err) {
-      core.error('Project ID lookup errored')
-      throw err
+      throw new Error('Project not found');
+    } catch (error) {
+      core.error('Project ID lookup errored');
+      throw error;
     }
   }
 
   async createFixVersion(projectId: number, fixVersion: string): Promise<boolean> {
-    let params: CreateVersion = {
+    const params: CreateVersion = {
       name: fixVersion,
       description: `${fixVersion} (via GitHub)`,
       archived: false,
       released: false,
       startDate: formatDate(Date.now()),
-      projectId: projectId
-    }
+      projectId,
+    };
     try {
-      core.info(`Creating new FixVersion: ${fixVersion}`)
-      const result = await this.client.projectVersions.createVersion(params)
-      core.debug(`Result of createVersion: ${JSON.stringify(result)}`)
-    } catch (err) {
-      core.error(`Failed creating new FixVersion: ${fixVersion}`)
-      throw err
+      core.info(`Creating new FixVersion: ${fixVersion}`);
+      const result = await this.client.projectVersions.createVersion(params);
+      core.debug(`Result of createVersion: ${JSON.stringify(result)}`);
+    } catch (error) {
+      core.error(`Failed creating new FixVersion: ${fixVersion}`);
+      throw error;
     }
-    return true
+    return true;
   }
 
   async getFixVersions(projectIdOrKey: string): Promise<Map<string, string>> {
-    let params: GetProjectVersionsPaginated = {
-      projectIdOrKey: projectIdOrKey,
-      status: 'released,unreleased',
-      orderBy: 'sequence',
-      startAt: 0,
-      maxResults: 100
+    const params: GetProjectVersions = {
+      projectIdOrKey,
+    };
+
+    const logMsg: string[] = [];
+    const versionsAvailable = new Map<string, string>();
+    const pageVersion: PageVersion = await this.client.projectVersions.getProjectVersions(params);
+
+    if (pageVersion.values && pageVersion.values.length > 0) {
+      for (const version of pageVersion.values) {
+        logMsg.push(
+          `Project ${projectIdOrKey} includes version ${version.name} [Start: ${version.startDate}, Release: ${version.releaseDate}, ID: ${version.id}]`,
+        );
+        if (version.name && version.id) {
+          versionsAvailable.set(version.name, version.id);
+        }
+      }
     }
 
-    const logMsg: string[] = []
-    const versionsAvailable = new Map<string, string>()
-    let getNextPage = true
-    let pageBeanVersion: PageBeanVersion
-    while (getNextPage === true) {
-      pageBeanVersion = await this.client.projectVersions.getProjectVersionsPaginated(params)
-      core.debug(
-        `StartAt:${pageBeanVersion.startAt}, Total: ${pageBeanVersion.total}, Max: ${pageBeanVersion.maxResults}`
-      )
-      if (
-        pageBeanVersion.total != undefined &&
-        params.startAt != undefined &&
-        pageBeanVersion.maxResults != undefined
-      ) {
-        params.startAt = params.startAt + Math.min(pageBeanVersion.total, pageBeanVersion.maxResults)
-        if (pageBeanVersion.values) {
-          for (const version of pageBeanVersion.values) {
-            logMsg.push(
-              `Project ${projectIdOrKey} includes version ${version.name} [Start: ${version.startDate}, Release: ${version.releaseDate}, ID: ${version.id}]`
-            )
-            if (version.name && version.id) {
-              versionsAvailable.set(version.name, version.id)
-            }
-          }
-        }
-      } else {
-        break
-      }
-      getNextPage = pageBeanVersion && !pageBeanVersion.isLast
-    }
-    core.debug(logMsg.join('\n'))
-    return versionsAvailable
+    core.debug(logMsg.join('\n'));
+    return versionsAvailable;
   }
 
   async updateIssueFixVersions(issueIdOrKey: string, fixVersions: string[]): Promise<object> {
-    const project = issueIdOrKey.split('-')[0].toUpperCase()
-    for (const fV of fixVersions) {
-      const needsCreation = !(await this.hasFixVersion(project, fV))
-      if (needsCreation) {
-        const id = await this.getProjectByKey(project)
-        if (id) {
-          await this.createFixVersion(id, fV)
-        }
-      }
+    const project = issueIdOrKey.split('-')[0].toUpperCase();
+    const existingVersions = await this.projectHasFixVersionsFromList(project, fixVersions);
+    const versionsToCreate = fixVersions.filter((e) => !existingVersions.includes(e.toUpperCase()));
+    const id = await this.getProjectByKey(project);
+    if (!id) {
+      throw new Error(`Project ${project} not found`);
     }
-    let update: FixVersions = []
-    for (const fV of fixVersions) {
-      const fixedVersion: FixVersion = {
-        add: {name: fV}
-      }
-      update.push(fixedVersion)
+    if (versionsToCreate.length > 0 && id) {
+      const promArray: Promise<boolean>[] = versionsToCreate.map(async (fV) => this.createFixVersion(id, fV));
+      await Promise.all(promArray);
     }
 
-    const params: EditIssue = {
-      issueIdOrKey: issueIdOrKey,
+    const update: FixVersions = fixVersions.map((fV) => {
+      return { add: { name: fV } };
+    });
+
+    return this.client.issues.editIssue({
+      issueIdOrKey,
       update: {
-        fixVersions: update
-      }
-    }
-    return this.client.issues.editIssue(params)
+        fixVersions: update,
+      },
+    });
   }
 }

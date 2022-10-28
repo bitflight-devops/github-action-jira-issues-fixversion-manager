@@ -1,113 +1,118 @@
-/* eslint-disable security/detect-object-injection */
-import * as core from '@actions/core'
-import * as github from '@actions/github'
-import * as path from 'path'
+import * as path from 'node:path';
 
-import {Args} from '../src/@types'
-import {Action} from '../src/action'
-import * as fsHelper from '../src/fs-helper'
-import * as inputHelper from '../src/input-helper'
+import * as core from '@actions/core';
+import * as github from '@actions/github';
 
-const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE
-const gitHubWorkspace = path.resolve('/checkout-tests/workspace')
+import { Args } from '../src/@types';
+import { Action } from '../src/action';
+import * as fsHelper from '../src/fs-helper';
+import * as inputHelper from '../src/input-helper';
 
-export const baseUrl = process.env.JIRA_BASE_URL as string
+const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
+const gitHubWorkspace = path.resolve('/checkout-tests/workspace');
+
+const baseUrl = process.env.JIRA_BASE_URL as string;
 // Inputs for mock @actions/core
-let inputs = {} as any
-let [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/')
+let inputs = {} as any;
+const [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
 // Shallow clone original @actions/github context
-const originalContext = {...github.context}
+const originalContext = { ...github.context };
 
 describe('jira ticket transition', () => {
   beforeAll(() => {
-    jest.setTimeout(50000)
+    jest.setTimeout(50_000);
     // Mock getInput
     jest.spyOn(core, 'getInput').mockImplementation((name: string) => {
-      // eslint-disable-next-line security/detect-object-injection
-      return inputs[name]
-    })
+      return inputs[name];
+    });
     jest.spyOn(core, 'getBooleanInput').mockImplementation((name: string) => {
-      const regMatTrue = /(true|True|TRUE)/
-      const regMatFalse = /(false|False|FALSE)/
+      const regMatTrue = /(true|True|TRUE)/;
+      const regMatFalse = /(false|False|FALSE)/;
       if (regMatTrue.test(inputs[name] as string)) {
-        return true
-      } else if (regMatFalse.test(inputs[name] as string)) {
-        return false
+        return true;
       }
-      // eslint-disable-next-line security/detect-object-injection
+      if (regMatFalse.test(inputs[name] as string)) {
+        return false;
+      }
+
       throw new Error(`
       TypeError: Input does not meet YAML 1.2 "Core Schema" specification: ${name}
       Support boolean input list: true | True | TRUE | false | False | FALSE
-    `)
-    })
+    `);
+    });
     // Mock error/warning/info/debug
-    jest.spyOn(core, 'error').mockImplementation(console.log)
-    jest.spyOn(core, 'warning').mockImplementation(console.log)
-    jest.spyOn(core, 'info').mockImplementation(console.log)
-    jest.spyOn(core, 'debug').mockImplementation(console.log)
+    jest.spyOn(core, 'error').mockImplementation(console.log);
+    jest.spyOn(core, 'warning').mockImplementation(console.log);
+    jest.spyOn(core, 'info').mockImplementation(console.log);
+    jest.spyOn(core, 'debug').mockImplementation(console.log);
 
     // Mock github context
     jest.spyOn(github.context, 'repo', 'get').mockImplementation(() => {
       return {
-        owner: owner,
-        repo: repo
-      }
-    })
+        owner,
+        repo,
+      };
+    });
 
-    github.context.ref = 'refs/heads/DVPS-331'
-    github.context.sha = '1234567890123456789012345678901234567890'
+    github.context.ref = 'refs/heads/DVPS-331';
+    github.context.sha = '1234567890123456789012345678901234567890';
 
     // Mock ./fs-helper directoryExistsSync()
-    jest.spyOn(fsHelper, 'directoryExistsSync').mockImplementation((fspath: string) => fspath === gitHubWorkspace)
+    jest.spyOn(fsHelper, 'directoryExistsSync').mockImplementation((fspath: string) => fspath === gitHubWorkspace);
 
     // GitHub workspace
-    process.env.GITHUB_WORKSPACE = gitHubWorkspace
-  })
+    process.env.GITHUB_WORKSPACE = gitHubWorkspace;
+  });
   beforeEach(() => {
     // Reset inputs
-    inputs = {}
-    inputs.token = process.env.GITHUB_TOKEN
-    inputs.fail_on_error = 'false'
+    inputs = {};
+    inputs.token = process.env.GITHUB_TOKEN;
+    inputs.fail_on_error = 'false';
 
-    inputs.jira_base_url = baseUrl
-    core.info(JSON.stringify(inputs))
-  })
+    inputs.jira_base_url = baseUrl;
+    core.info(JSON.stringify(inputs));
+  });
   afterAll(() => {
     // Restore GitHub workspace
-    process.env.GITHUB_WORKSPACE = undefined
+    process.env.GITHUB_WORKSPACE = undefined;
     if (originalGitHubWorkspace) {
-      process.env.GITHUB_WORKSPACE = originalGitHubWorkspace
+      process.env.GITHUB_WORKSPACE = originalGitHubWorkspace;
     }
 
     // Restore @actions/github context
-    github.context.ref = originalContext.ref
-    github.context.sha = originalContext.sha
+    github.context.ref = originalContext.ref;
+    github.context.sha = originalContext.sha;
 
     // Restore
-    jest.restoreAllMocks()
-  })
+    jest.restoreAllMocks();
+  });
 
   it('sets defaults', () => {
-    const settings: Args = inputHelper.getInputs()
-    expect(settings).toBeTruthy()
-    expect(settings.config).toBeTruthy()
-    expect(settings.config.baseUrl).toEqual(baseUrl)
-  })
+    const settings: Args = inputHelper.getInputs();
+    expect(settings).toBeTruthy();
+    expect(settings.config).toBeTruthy();
+    expect(settings.config.baseUrl).toEqual(baseUrl);
+  });
 
   it('GitHub Event: pull_request', async () => {
     // expect.hasAssertions()
     github.context.payload = {
-      pull_request: {head: {ref: 'refs/heads/DVPS-331'}, base: {ref: 'refs/heads/dev'}, number: 2770, title: 'DVPS-336'}
-    }
-    //DVPS-331, DVPS-336,
-    inputs.issues = 'UNICORN-8403'
-    inputs.fix_versions = '2.21.0 - API'
-    github.context.eventName = 'pull_request'
-    const settings: Args = inputHelper.getInputs()
-    expect(settings.config).toBeTruthy()
-    expect(settings.fixVersions).toStrictEqual(['2.21.0 - API'])
-    const action = new Action(github.context, settings)
-    const result = await action.execute()
-    expect(result).toEqual(true)
-  })
-})
+      pull_request: {
+        head: { ref: 'refs/heads/DVPS-331' },
+        base: { ref: 'refs/heads/dev' },
+        number: 2770,
+        title: 'DVPS-336',
+      },
+    };
+    // DVPS-331, DVPS-336,
+    inputs.issues = 'UNICORN-8403';
+    inputs.fix_versions = '2.21.0 - API';
+    github.context.eventName = 'pull_request';
+    const settings: Args = inputHelper.getInputs();
+    expect(settings.config).toBeTruthy();
+    expect(settings.fixVersions).toStrictEqual(['2.21.0 - API']);
+    const action = new Action(github.context, settings);
+    const result = await action.execute();
+    expect(result).toEqual(true);
+  });
+});
