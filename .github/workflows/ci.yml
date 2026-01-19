@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: TypeScript type check
+        run: yarn tsc --noEmit
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Run tests
+        run: yarn test
+        env:
+          # Provide mock values for tests that check env vars exist
+          JIRA_BASE_URL: https://mock.atlassian.net
+          JIRA_API_TOKEN: mock-token
+          JIRA_USER_EMAIL: mock@example.com
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        run: yarn build
+
+      - name: Verify dist is up to date
+        run: |
+          git diff --exit-code dist/ || {
+            echo "::error::dist/ is out of date. Run 'yarn build' and commit the changes."
+            exit 1
+          }
