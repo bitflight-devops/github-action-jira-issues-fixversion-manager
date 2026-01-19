@@ -21,6 +21,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 4 for detail
 **Process**:
 
 1. **Analyze Current State**:
+
    ```bash
    # Check package.json for current versions
    cat package.json | grep -E '"node"|"typescript"|dependencies' -A 20
@@ -33,11 +34,13 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 4 for detail
    ```
 
 2. **Generate Initial Task List** based on findings from other agents:
+
    - Architecture analysis findings
    - Validation gate results
    - Documentation gaps
 
 3. **Validate Dependencies**:
+
    ```bash
    # Check if dependencies are compatible
    npm outdated 2>/dev/null || yarn outdated 2>/dev/null
@@ -59,22 +62,26 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 4 for detail
 
 1. **For Each Major Change**:
    a. Check git history for similar changes:
-      ```bash
-      git log --all --oneline --grep="upgrade\|migration\|refactor" | head -20
-      ```
+
+   ```bash
+   git log --all --oneline --grep="upgrade\|migration\|refactor" | head -20
+   ```
 
    b. Check how many files depend on the component:
-      ```bash
-      grep -rn "import.*ComponentName" src/ | wc -l
-      ```
+
+   ```bash
+   grep -rn "import.*ComponentName" src/ | wc -l
+   ```
 
    c. Check test coverage for the component:
-      ```bash
-      # Look at test files
-      find . -name "*.test.ts" | xargs grep "ComponentName" | wc -l
-      ```
+
+   ```bash
+   # Look at test files
+   find . -name "*.test.ts" | xargs grep "ComponentName" | wc -l
+   ```
 
 2. **Risk Factors to Consider**:
+
    - Number of dependents (more = higher risk)
    - Test coverage (lower = higher risk)
    - Historical issues (check git for reverts, fixes)
@@ -92,13 +99,16 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 4 for detail
 **Process**:
 
 1. **For Each Task**:
+
    - What can be reverted via git?
    - What requires manual intervention?
    - What has external dependencies (DB migrations, API changes)?
 
 2. **Document Rollback Steps**:
+
    ```markdown
    ## Rollback Procedure for Task X
+
    1. git revert <commit-hash>
    2. npm install (restore dependencies)
    3. Verify tests pass
@@ -110,6 +120,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 4 for detail
 Before finalizing the plan:
 
 1. **Dependency Order Verification**:
+
    ```bash
    # For each dependency claim, verify
    # "Task A depends on package X" -> check package.json
@@ -117,6 +128,7 @@ Before finalizing the plan:
    ```
 
 2. **Risk Level Verification**:
+
    - Verify dependent counts are accurate
    - Verify coverage claims against test files
    - Check git history for cited incidents
@@ -164,6 +176,7 @@ Update the checkpoint file:
 ## Planning Checklist
 
 Before marking complete, verify:
+
 - [ ] All tasks have clear acceptance criteria
 - [ ] Dependencies are in correct order (verified)
 - [ ] Risk levels backed by evidence
@@ -175,6 +188,7 @@ Before marking complete, verify:
 ## Output Document
 
 Create `docs/MODERNIZATION-PLAN.md` with:
+
 1. Executive summary
 2. Task list with dependencies (visual diagram if helpful)
 3. Risk assessment with evidence

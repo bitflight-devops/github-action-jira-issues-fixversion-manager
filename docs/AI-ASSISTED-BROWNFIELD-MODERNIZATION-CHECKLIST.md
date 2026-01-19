@@ -487,7 +487,7 @@ Validation Rule: Any claim must be verifiable through:
 
 **Example:**
 
-```
+````
 Step 1 (AI Generates): src/services/README.md
 "# Services Layer
 Contains business logic services.
@@ -520,30 +520,35 @@ and account deletion.
 from services import UserService
 user_service = UserService(db_session)
 user = user_service.create_user(email="test@example.com")
-```
+````
 
 ### auth_service.py
+
 **Purpose**: Authentication and authorization using JWT tokens.
 **Key Classes**: `AuthService`, `TokenManager`
 **Dependencies**: `UserRepository`, `Redis` (for token blacklisting)
 
 ### email_service.py
+
 **Purpose**: Email notification delivery via SendGrid API.
 **Key Classes**: `EmailService`
 **Dependencies**: `SendGrid` (external), `TemplateEngine`
 **Configuration**: Requires SENDGRID_API_KEY in environment
 
 ### payment_service.py
+
 **Purpose**: Payment processing integration with Stripe.
 **Key Classes**: `PaymentService`, `StripeAdapter`
 **Dependencies**: `stripe` library, `PaymentRepository`
 **Security Note**: PCI compliance requirements documented in docs/security/pci-compliance.md
 
 ## Testing
+
 Run service tests: `pytest tests/services/ -v`
 Coverage requirement: >80% for all services
 
 ## Adding New Services
+
 1. Inherit from `BaseService` class
 2. Implement required interface methods
 3. Add dependency injection in `__init__.py`
@@ -551,10 +556,12 @@ Coverage requirement: >80% for all services
 5. Update this README"
 
 Step 4 (Validation):
+
 - File count matches: ✓
 - Import statements verified: ✓
 - Test command works: ✓
 - Cross-references valid: ✓
+
 ```
 
 ### 7.2 File-Level Purpose Documentation with Cross-Validation
@@ -564,10 +571,12 @@ Step 4 (Validation):
 **Example:**
 
 ```
+
 Step 1 (AI Documents): src/utils/validators.py
 "Purpose: Input validation utilities"
 
 Step 2 (Deep Verification):
+
 - Analyze imports: What does this file import?
   → re, typing, email_validator
 - Analyze exports: What do other files import from this?
@@ -579,51 +588,61 @@ Step 3 (Comprehensive Documentation):
 "# validators.py
 
 ## Purpose
+
 Provides input validation and sanitization utilities used across the application
 to ensure data integrity and security.
 
 ## Key Functions
 
 ### validate_email(email: str) -> bool
+
 Validates email format using RFC 5322 standards via email-validator library.
 **Used by**: User registration (forms.py:45), API endpoints (api/endpoints.py:123)
 **Returns**: True if valid, raises ValidationError if invalid
 
 ### validate_phone(phone: str, country_code: str = 'US') -> str
+
 Validates and normalizes phone numbers to E.164 format.
 **Used by**: User profile updates (services/user_service.py:234)
 **Returns**: Normalized phone string or raises ValidationError
 
 ### validate_password(password: str) -> Tuple[bool, List[str]]
+
 Enforces password policy: min 12 chars, uppercase, lowercase, number, special char.
 **Used by**: Registration and password reset flows
 **Returns**: (is_valid, list_of_violations)
 
 ### sanitize_input(text: str, allow_html: bool = False) -> str
+
 Removes potentially dangerous characters and optionally strips HTML.
 **Used by**: All user-generated content processing
 **Security**: Prevents XSS attacks - see docs/security/input-sanitization.md
 
 ## Dependencies
+
 - email-validator: ^2.0.0 (external)
 - re: standard library
 - typing: standard library
 
 ## Testing
+
 Tests located in: tests/utils/test_validators.py
 Run: `pytest tests/utils/test_validators.py -v`
 Coverage: 94%
 
 ## Security Considerations
+
 This module is security-critical. All changes require security review.
 See: docs/security/validation-requirements.md"
 
 Step 4 (Validation):
+
 - All function signatures verified against actual code: ✓
 - Import statements confirmed: ✓
 - Usage locations checked: ✓
 - Test file exists and runs: ✓
 - Coverage percentage verified: ✓
+
 ```
 
 ### 7.3 Navigation-Optimized Documentation Structure
@@ -633,18 +652,19 @@ Step 4 (Validation):
 **Example:**
 
 ```
+
 Step 1 (Directory Structure Audit):
 src/
 ├── api/
-│   ├── endpoints/
-│   │   └── (no README) ✗
-│   └── README.md ✓
+│ ├── endpoints/
+│ │ └── (no README) ✗
+│ └── README.md ✓
 ├── services/
-│   └── README.md ✓
+│ └── README.md ✓
 ├── models/
-│   └── (no README) ✗
+│ └── (no README) ✗
 └── utils/
-    └── README.md ✓
+└── README.md ✓
 
 Step 2 (AI Generates Missing READMEs):
 For src/api/endpoints/ (contains: users.py, auth.py, payments.py):
@@ -654,23 +674,29 @@ For src/api/endpoints/ (contains: users.py, auth.py, payments.py):
 This directory contains FastAPI route handlers organized by domain.
 
 ## Structure
+
 Each file defines routes for a specific domain:
-- `users.py`: User management endpoints (/api/users/*)
-- `auth.py`: Authentication endpoints (/api/auth/*)
-- `payments.py`: Payment processing endpoints (/api/payments/*)
+
+- `users.py`: User management endpoints (/api/users/\*)
+- `auth.py`: Authentication endpoints (/api/auth/\*)
+- `payments.py`: Payment processing endpoints (/api/payments/\*)
 
 ## Route Registration
+
 All endpoints are automatically registered in `src/api/__init__.py` via:
+
 ```python
 from api.endpoints import users, auth, payments
 app.include_router(users.router, prefix="/api/users")
 ```
 
 ## Endpoint Documentation
+
 - Interactive API docs: http://localhost:8000/docs (Swagger UI)
 - OpenAPI spec: http://localhost:8000/openapi.json
 
 ## Adding New Endpoints
+
 1. Create new file: `src/api/endpoints/domain.py`
 2. Define router: `router = APIRouter(tags=["domain"])`
 3. Add endpoints with proper decorators and type hints
@@ -678,10 +704,12 @@ app.include_router(users.router, prefix="/api/users")
 5. Add tests in `tests/api/endpoints/test_domain.py`
 
 ## Authentication
+
 Most endpoints require JWT authentication. See `auth.py:get_current_user()` dependency.
 
 ## Testing
-```bash
+
+````bash
 pytest tests/api/endpoints/ -v
 ```"
 
@@ -690,7 +718,7 @@ Step 3 (Validation):
 - Links work: All cross-references valid ✓
 - Commands tested: All example commands execute successfully ✓
 - No ambiguity: Purpose of each file clearly stated ✓
-```
+````
 
 ---
 
@@ -793,15 +821,15 @@ Actual: create_user(email: str, send_welcome: bool = True) -> User
 
 ## Quick Reference: Validation Commands
 
-| Phase | Tool | Command | Purpose |
-|-------|------|---------|---------|
-| Analysis | AST | `tree-sitter parse src/` | Code structure inventory |
-| Analysis | CodeQL | `codeql analyze --format=sarif-latest` | Security baseline |
-| Validation | Type Check | `mypy src/ --strict` | Type safety validation |
-| Validation | Lint | `pylint src/` or `eslint src/` | Code quality gates |
-| Validation | Test | `pytest tests/ --cov=src` | Ground truth verification |
-| CI/CD | Docker | `docker build --no-cache .` | Build reproducibility |
-| Documentation | Grep | `grep -r "pattern" src/` | Cross-reference validation |
+| Phase         | Tool       | Command                                | Purpose                    |
+| ------------- | ---------- | -------------------------------------- | -------------------------- |
+| Analysis      | AST        | `tree-sitter parse src/`               | Code structure inventory   |
+| Analysis      | CodeQL     | `codeql analyze --format=sarif-latest` | Security baseline          |
+| Validation    | Type Check | `mypy src/ --strict`                   | Type safety validation     |
+| Validation    | Lint       | `pylint src/` or `eslint src/`         | Code quality gates         |
+| Validation    | Test       | `pytest tests/ --cov=src`              | Ground truth verification  |
+| CI/CD         | Docker     | `docker build --no-cache .`            | Build reproducibility      |
+| Documentation | Grep       | `grep -r "pattern" src/`               | Cross-reference validation |
 
 ---
 

@@ -21,6 +21,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 7 for detail
 **Process**:
 
 1. **Directory Audit**:
+
    ```bash
    # Find all directories in src
    find src -type d
@@ -35,21 +36,24 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 7 for detail
 
 2. **For Each Directory**:
    a. List actual contents:
-      ```bash
-      ls -la src/directory/
-      ```
+
+   ```bash
+   ls -la src/directory/
+   ```
 
    b. Analyze file purposes by reading them:
-      ```bash
-      head -50 src/directory/file.ts
-      ```
+
+   ```bash
+   head -50 src/directory/file.ts
+   ```
 
    c. Generate README with:
-      - Directory purpose
-      - File descriptions
-      - Usage examples
-      - Dependencies
-      - Testing instructions
+
+   - Directory purpose
+   - File descriptions
+   - Usage examples
+   - Dependencies
+   - Testing instructions
 
 3. **Validation Loop**:
    - Verify all files are documented
@@ -66,12 +70,15 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 7 for detail
    a. Read the file content
    b. Identify exports and their purposes
    c. Find where the file is imported:
-      ```bash
-      grep -rn "from.*filename\|import.*filename" src/
-      ```
+
+   ```bash
+   grep -rn "from.*filename\|import.*filename" src/
+   ```
+
    d. Document based on actual usage, not assumptions
 
 2. **Cross-Validation**:
+
    ```bash
    # Verify documented exports exist
    grep -n "export" src/file.ts
@@ -87,6 +94,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 7 for detail
 **Process**:
 
 1. **Audit Navigation**:
+
    - Every directory should have a README.md
    - README should be visible in GitHub UI
    - Links between docs should work
@@ -101,12 +109,14 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 7 for detail
 For every documentation claim, verify:
 
 1. **Function/Class Claims**:
+
    ```bash
    # Verify the function exists
    grep -n "function functionName\|class ClassName" src/
    ```
 
 2. **Parameter Claims**:
+
    ```bash
    # Check actual function signature
    grep -A5 "function functionName" src/file.ts
@@ -123,15 +133,18 @@ For every documentation claim, verify:
 When documentation doesn't match code:
 
 1. **Identify Discrepancy**:
+
    - Documented: "Function takes 2 parameters"
    - Actual: Function takes 3 parameters
 
 2. **Determine Source of Truth**:
+
    - Check git history for recent changes
    - Verify against tests
    - Read actual implementation
 
 3. **Correct Documentation**:
+
    - Update to match actual code
    - Add note if behavior is unexpected
 
@@ -172,6 +185,7 @@ Update the checkpoint file:
 ## Documentation Checklist
 
 Before marking complete, verify:
+
 - [ ] Every src/ subdirectory has README.md
 - [ ] All documented functions exist in code
 - [ ] All documented parameters match actual signatures

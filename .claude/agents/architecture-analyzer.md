@@ -21,6 +21,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 1 for detail
 **Process**:
 
 1. **Generate Initial Inventory**:
+
    ```bash
    # Count TypeScript/JavaScript files
    find . -name "*.ts" -o -name "*.js" | grep -v node_modules | grep -v dist | wc -l
@@ -33,11 +34,13 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 1 for detail
    ```
 
 2. **Verification Questions**:
+
    - Are there any dynamic imports not captured?
    - Do file counts match directory traversal?
    - Are build/generated files excluded?
 
 3. **Verification Execution**:
+
    ```bash
    # Check for dynamic imports
    grep -r "import(" src/ --include="*.ts"
@@ -59,6 +62,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 1 for detail
 **Process**:
 
 1. **Analyze Imports**:
+
    ```bash
    # Find all import statements
    grep -rn "^import\|from.*import" src/ --include="*.ts"
@@ -68,6 +72,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 1 for detail
    ```
 
 2. **Identify Hidden Dependencies**:
+
    - Runtime dependencies via dynamic imports
    - Peer dependencies not in package.json
    - Build-time dependencies
@@ -82,6 +87,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 1 for detail
 **Process**:
 
 1. **Identify Potential Issues**:
+
    ```bash
    # Check for hardcoded secrets patterns
    grep -rn "password\|secret\|api_key\|apikey\|token" src/ --include="*.ts" -i
@@ -124,6 +130,7 @@ Update the checkpoint file with your findings:
 ## Chain-of-Verification Checklist
 
 Before marking complete, verify:
+
 - [ ] File counts match actual directory contents
 - [ ] All imports are captured in dependency graph
 - [ ] Dynamic imports are flagged

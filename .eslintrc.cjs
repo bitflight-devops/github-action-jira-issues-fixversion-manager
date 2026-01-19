@@ -177,6 +177,7 @@ module.exports = {
         'unicorn/prefer-module': 'off',
         'unicorn/prefer-top-level-await': 'off',
         'unicorn/prevent-abbreviations': 'off',
+        'unicorn/expiring-todo-comments': 'off',
 
         '@typescript-eslint/no-array-constructor': 'error',
         '@typescript-eslint/no-empty-interface': 'error',

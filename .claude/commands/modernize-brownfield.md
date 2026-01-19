@@ -21,6 +21,7 @@ Read this file first to understand the 8-phase modernization process.
 ## Checkpoint System
 
 All agent work is tracked in `.claude/checkpoints/modernization-progress.json`. This enables:
+
 - Progress tracking across sessions
 - Checkpoint-based resumption if agents fail
 - Shared state between agents
@@ -47,6 +48,7 @@ cat .claude/checkpoints/modernization-progress.json
 ### Step 2: Determine Resume Point
 
 Based on the checkpoint, identify which phases are incomplete:
+
 - `pending` - Not started
 - `in_progress` - Started but not completed (needs resumption)
 - `completed` - Finished and verified
@@ -56,14 +58,17 @@ Based on the checkpoint, identify which phases are incomplete:
 Use the Task tool to spawn multiple agents in parallel. Each agent should:
 
 1. **Architecture Analyzer Agent** (Phase 1)
+
    - Prompt: "Analyze the repository structure following the brownfield modernization checklist Phase 1. Read docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md for guidance. Update .claude/checkpoints/modernization-progress.json with your findings. Use Chain-of-Verification: generate initial analysis, create verification questions, answer them against actual code, and self-correct."
    - subagent_type: Explore
 
 2. **Validation Runner Agent** (Phase 2)
+
    - Prompt: "Set up the validation harness following brownfield modernization checklist Phase 2. Read docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md. Configure type checking, linting, and test infrastructure. Record validation gate results in .claude/checkpoints/modernization-progress.json."
    - subagent_type: general-purpose
 
 3. **Documentation Generator Agent** (Phase 7)
+
    - Prompt: "Generate comprehensive documentation following brownfield modernization checklist Phase 7. Read docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md. Create per-directory READMEs with validation against actual code. Update checkpoint when complete."
    - subagent_type: general-purpose
 
@@ -74,6 +79,7 @@ Use the Task tool to spawn multiple agents in parallel. Each agent should:
 ### Step 4: Monitor and Coordinate
 
 After launching agents:
+
 1. Wait for agent completion
 2. Read updated checkpoint file
 3. Verify each phase was completed successfully
@@ -82,6 +88,7 @@ After launching agents:
 ### Step 5: Final Verification
 
 When all phases complete:
+
 1. Run the hallucination detection checklist (Phase 6.3)
 2. Verify all documentation cross-references are valid
 3. Ensure modernization plan dependencies are correctly ordered
@@ -125,6 +132,7 @@ When updating the checkpoint, use this structure:
 ## Error Recovery
 
 If an agent fails:
+
 1. Record the failure in checkpoint with error details
 2. Analyze what caused the failure
 3. Create a more specific prompt addressing the issue
@@ -133,6 +141,7 @@ If an agent fails:
 ## Success Criteria
 
 The modernization is complete when:
+
 - [ ] All 8 phases have status "completed"
 - [ ] All verification checks passed
 - [ ] Hallucination detection found no issues
