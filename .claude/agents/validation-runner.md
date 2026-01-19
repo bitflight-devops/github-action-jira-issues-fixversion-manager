@@ -21,6 +21,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 2 for detail
 **Process**:
 
 1. **Audit Current Configuration**:
+
    ```bash
    # Check existing TypeScript config
    cat tsconfig.json
@@ -30,6 +31,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 2 for detail
    ```
 
 2. **Document Type Coverage**:
+
    - Count files with proper type annotations
    - Identify files with `any` types
    - Note strict mode settings
@@ -48,6 +50,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 2 for detail
 **Process**:
 
 1. **Audit Current Linting**:
+
    ```bash
    # Check ESLint configuration
    cat .eslintrc.cjs 2>/dev/null || cat .eslintrc.json 2>/dev/null || cat .eslintrc 2>/dev/null
@@ -57,6 +60,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 2 for detail
    ```
 
 2. **Identify Linting Gaps**:
+
    - Rules that should be enabled
    - Files excluded from linting
    - Custom rules needed for project
@@ -74,6 +78,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 2 for detail
 **Process**:
 
 1. **Audit Test Infrastructure**:
+
    ```bash
    # Check test configuration
    cat jest.config.ts 2>/dev/null || cat jest.config.js 2>/dev/null
@@ -83,6 +88,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 2 for detail
    ```
 
 2. **Run Test Suite**:
+
    ```bash
    # Execute tests with coverage
    npm test 2>&1 | tail -50
@@ -98,6 +104,7 @@ Read `docs/AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` Phase 2 for detail
 When validation gates fail:
 
 1. **Record the Failure**:
+
    ```json
    {
      "gate": "type-check",
@@ -158,6 +165,7 @@ Update the checkpoint file with validation results:
 ## Validation Gate Checklist
 
 Before marking complete, verify:
+
 - [ ] Type checker runs without configuration errors
 - [ ] Linter runs and produces parseable output
 - [ ] Test suite executes (even if tests fail)

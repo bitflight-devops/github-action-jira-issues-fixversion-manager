@@ -34,6 +34,7 @@ Run the main orchestration command:
 ```
 
 This will:
+
 1. Initialize the checkpoint system
 2. Launch specialized agents to analyze the codebase
 3. Track progress across sessions
@@ -48,6 +49,7 @@ This will:
 ### Resume from Checkpoint
 
 If a session was interrupted, simply run `/modernize-brownfield` again. The orchestrator will:
+
 1. Read the existing checkpoint
 2. Identify incomplete phases
 3. Resume from where it left off
