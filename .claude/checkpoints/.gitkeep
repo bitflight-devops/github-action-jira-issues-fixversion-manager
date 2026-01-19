@@ -1,0 +1,3 @@
+# This directory stores modernization progress checkpoints
+# Actual checkpoint files (*.json) are gitignored as they are session-specific
+# Run .claude/hooks/checkpoint-init.sh to initialize a new checkpoint

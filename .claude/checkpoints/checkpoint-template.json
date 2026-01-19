@@ -1,0 +1,141 @@
+{
+  "version": "1.0.0",
+  "projectName": "github-action-jira-issues-fixversion-manager",
+  "initDate": "TIMESTAMP",
+  "lastUpdated": "TIMESTAMP",
+  "phases": {
+    "architecture-analysis": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "findings": {
+        "totalFiles": 0,
+        "sourceFiles": [],
+        "exports": [],
+        "dependencies": {
+          "internal": [],
+          "external": []
+        },
+        "securityConcerns": [],
+        "dynamicImports": []
+      },
+      "verificationPassed": false,
+      "verificationNotes": ""
+    },
+    "validation-harness": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "gates": {
+        "typeCheck": {
+          "tool": "tsc",
+          "config": "tsconfig.json",
+          "status": "pending",
+          "errorCount": 0,
+          "errors": []
+        },
+        "linting": {
+          "tool": "eslint",
+          "config": ".eslintrc.cjs",
+          "status": "pending",
+          "errorCount": 0,
+          "warningCount": 0
+        },
+        "tests": {
+          "tool": "jest",
+          "config": "jest.config.ts",
+          "status": "pending",
+          "passed": 0,
+          "failed": 0,
+          "coverage": "0%"
+        }
+      },
+      "verificationPassed": false
+    },
+    "architecture-documentation": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "documents": [],
+      "verificationPassed": false
+    },
+    "modernization-plan": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "tasks": [],
+      "riskAssessment": {
+        "overallRisk": "unknown",
+        "highRiskTasks": [],
+        "mitigationStrategies": []
+      },
+      "verificationPassed": false
+    },
+    "cicd-pipeline": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "pipelineConfig": {},
+      "verificationPassed": false
+    },
+    "review-cycles": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "hallucinationChecks": [],
+      "verificationPassed": false
+    },
+    "documentation": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "files": [],
+      "validationResults": {
+        "filesDocumented": 0,
+        "crossReferencesVerified": 0,
+        "discrepanciesFound": 0,
+        "discrepanciesCorrected": 0
+      },
+      "verificationPassed": false
+    },
+    "continuous-validation": {
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "hooks": [],
+      "verificationPassed": false
+    }
+  },
+  "agents": {
+    "architecture-analyzer": {
+      "invocations": 0,
+      "lastRun": null,
+      "status": "ready",
+      "lastError": null
+    },
+    "validation-runner": {
+      "invocations": 0,
+      "lastRun": null,
+      "status": "ready",
+      "lastError": null
+    },
+    "documentation-generator": {
+      "invocations": 0,
+      "lastRun": null,
+      "status": "ready",
+      "lastError": null
+    },
+    "modernization-planner": {
+      "invocations": 0,
+      "lastRun": null,
+      "status": "ready",
+      "lastError": null
+    }
+  },
+  "resumeInfo": {
+    "lastIncompletePhase": "architecture-analysis",
+    "blockers": [],
+    "notes": ""
+  },
+  "verificationLog": []
+}
