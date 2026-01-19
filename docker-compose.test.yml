@@ -1,0 +1,110 @@
+version: '3.8'
+
+# Docker Compose configuration for integration testing
+# This spins up a Jira Data Center instance with PostgreSQL for testing
+#
+# Usage:
+#   docker-compose -f docker-compose.test.yml up -d
+#   # Wait for Jira to be ready (check http://localhost:8080)
+#   yarn test:integration
+#   docker-compose -f docker-compose.test.yml down
+
+services:
+  jira:
+    image: atlassian/jira-software:9.12-jdk17
+    container_name: jira-test
+    environment:
+      # Database configuration
+      - ATL_JDBC_URL=jdbc:postgresql://postgres:5432/jira
+      - ATL_JDBC_USER=jira
+      - ATL_JDBC_PASSWORD=jira
+      - ATL_DB_DRIVER=org.postgresql.Driver
+      - ATL_DB_TYPE=postgres72
+      # JVM settings (reduce memory for testing)
+      - JVM_MINIMUM_MEMORY=512m
+      - JVM_MAXIMUM_MEMORY=1024m
+      - JVM_RESERVED_CODE_CACHE_SIZE=256m
+      # Proxy settings (if needed)
+      - ATL_PROXY_NAME=localhost
+      - ATL_PROXY_PORT=8080
+      - ATL_TOMCAT_SCHEME=http
+    ports:
+      - '8080:8080'
+    volumes:
+      - jira-data:/var/atlassian/application-data/jira
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/status']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: jira-postgres
+    environment:
+      - POSTGRES_USER=jira
+      - POSTGRES_PASSWORD=jira
+      - POSTGRES_DB=jira
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U jira -d jira']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test data setup container
+  # This waits for Jira to be ready, then creates test projects/issues
+  setup:
+    image: curlimages/curl:latest
+    container_name: jira-setup
+    depends_on:
+      jira:
+        condition: service_healthy
+    environment:
+      - JIRA_BASE_URL=http://jira:8080
+      - JIRA_ADMIN_USER=${JIRA_ADMIN_USER:-admin}
+      - JIRA_ADMIN_PASSWORD=${JIRA_ADMIN_PASSWORD:-admin}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        echo "Waiting for Jira to be fully ready..."
+        sleep 30
+
+        # Create test project UNICORN
+        echo "Creating test project UNICORN..."
+        curl -s -u "$${JIRA_ADMIN_USER}:$${JIRA_ADMIN_PASSWORD}" \
+          -X POST \
+          -H "Content-Type: application/json" \
+          "$${JIRA_BASE_URL}/rest/api/2/project" \
+          -d '{
+            "key": "UNICORN",
+            "name": "Unicorn Test Project",
+            "projectTypeKey": "software",
+            "projectTemplateKey": "com.pyxis.greenhopper.jira:gh-simplified-agility-kanban",
+            "lead": "admin"
+          }' || echo "Project may already exist"
+
+        # Create test issue UNICORN-8403
+        echo "Creating test issue..."
+        curl -s -u "$${JIRA_ADMIN_USER}:$${JIRA_ADMIN_PASSWORD}" \
+          -X POST \
+          -H "Content-Type: application/json" \
+          "$${JIRA_BASE_URL}/rest/api/2/issue" \
+          -d '{
+            "fields": {
+              "project": {"key": "UNICORN"},
+              "summary": "Test issue for integration testing",
+              "issuetype": {"name": "Task"}
+            }
+          }' || echo "Issue creation may have failed"
+
+        echo "Test data setup complete!"
+
+volumes:
+  jira-data:
+  postgres-data:
