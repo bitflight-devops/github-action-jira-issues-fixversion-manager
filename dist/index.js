@@ -421,7 +421,10 @@ exports.Action = Action;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.loadFileSync = exports.fileExistsSync = exports.directoryExistsSync = exports.existsSync = void 0;
+exports.existsSync = existsSync;
+exports.directoryExistsSync = directoryExistsSync;
+exports.fileExistsSync = fileExistsSync;
+exports.loadFileSync = loadFileSync;
 const tslib_1 = __nccwpck_require__(4351);
 const fs = tslib_1.__importStar(__nccwpck_require__(87561));
 const node_fs_1 = __nccwpck_require__(87561);
@@ -432,7 +435,6 @@ function existsSync(path) {
     }
     return fs.existsSync(path);
 }
-exports.existsSync = existsSync;
 function directoryExistsSync(path, required) {
     if (!path) {
         throw new Error(empty_path_error_msg);
@@ -448,7 +450,6 @@ function directoryExistsSync(path, required) {
     }
     throw new Error(`Directory '${path}' does not exist`);
 }
-exports.directoryExistsSync = directoryExistsSync;
 function fileExistsSync(path) {
     if (!path) {
         throw new Error(empty_path_error_msg);
@@ -461,7 +462,6 @@ function fileExistsSync(path) {
     }
     return false;
 }
-exports.fileExistsSync = fileExistsSync;
 function loadFileSync(path) {
     if (!path) {
         throw new Error(empty_path_error_msg);
@@ -476,7 +476,6 @@ function loadFileSync(path) {
     }
     throw new Error(`Encountered an error when reading file '${path}': file not there`);
 }
-exports.loadFileSync = loadFileSync;
 
 
 /***/ }),
@@ -487,7 +486,7 @@ exports.loadFileSync = loadFileSync;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getInputs = void 0;
+exports.getInputs = getInputs;
 const tslib_1 = __nccwpck_require__(4351);
 const path = tslib_1.__importStar(__nccwpck_require__(49411));
 const core = tslib_1.__importStar(__nccwpck_require__(42186));
@@ -528,7 +527,6 @@ function getInputs() {
     fsHelper.directoryExistsSync(githubWorkspacePath, true);
     return result;
 }
-exports.getInputs = getInputs;
 
 
 /***/ }),
@@ -539,19 +537,21 @@ exports.getInputs = getInputs;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.formatDate = exports.nullIfEmpty = exports.toCommaDelimitedString = exports.isError = exports.issueIdRegEx = void 0;
+exports.issueIdRegEx = void 0;
+exports.isError = isError;
+exports.toCommaDelimitedString = toCommaDelimitedString;
+exports.nullIfEmpty = nullIfEmpty;
+exports.formatDate = formatDate;
 exports.issueIdRegEx = /([\dA-Za-z]+-\d+)/g;
 function isError(error) {
     return error instanceof Error;
 }
-exports.isError = isError;
 function toCommaDelimitedString(strSet) {
     if (strSet) {
         return [...strSet].join(',');
     }
     return '';
 }
-exports.toCommaDelimitedString = toCommaDelimitedString;
 function nullIfEmpty(str) {
     if (!str || !Array.isArray(str)) {
         return null;
@@ -564,7 +564,6 @@ function nullIfEmpty(str) {
     }
     return str;
 }
-exports.nullIfEmpty = nullIfEmpty;
 function formatDate(date) {
     const d = new Date(date);
     let month = `${d.getMonth() + 1}`;
@@ -576,7 +575,6 @@ function formatDate(date) {
         day = `0${day}`;
     return [year, month, day].join('-');
 }
-exports.formatDate = formatDate;
 
 
 /***/ }),

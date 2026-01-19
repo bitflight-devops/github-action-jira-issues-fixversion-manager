@@ -49,5 +49,5 @@ inputs:
     required: false
 
 runs:
-  using: 'node16'
+  using: 'node22'
   main: './dist/index.js'
