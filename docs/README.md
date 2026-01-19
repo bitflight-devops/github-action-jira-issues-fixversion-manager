@@ -7,6 +7,7 @@ This directory contains supplementary documentation for the GitHub Action.
 | File                                                | Description                                                |
 | --------------------------------------------------- | ---------------------------------------------------------- |
 | `AI-ASSISTED-BROWNFIELD-MODERNIZATION-CHECKLIST.md` | Comprehensive guide for AI-assisted codebase modernization |
+| `MODERNIZATION-PLAN.md`                             | Detailed modernization task breakdown with risk assessment |
 
 ## AI-Assisted Brownfield Modernization Checklist
 
@@ -40,6 +41,29 @@ The checklist is designed for use with Claude Code and the `.claude/` configurat
 ```
 
 See `.claude/README.md` for detailed usage instructions.
+
+## Modernization Plan
+
+The modernization plan (`MODERNIZATION-PLAN.md`) provides a detailed task breakdown for upgrading this GitHub Action, including:
+
+- **Critical**: Node.js runtime upgrade from node16 to node20
+- **High Priority**: TypeScript and dependency updates
+- **Task Dependencies**: Dependency graph showing execution order
+- **Risk Assessment**: Per-task risk analysis with mitigation strategies
+- **Rollback Procedures**: Step-by-step rollback commands for each task
+
+### Task Overview
+
+| Task | Priority | Description                                  |
+| ---- | -------- | -------------------------------------------- |
+| 1    | Critical | Audit dependencies for Node 20 compatibility |
+| 2    | High     | Update minor and patch dependencies          |
+| 3    | High     | Upgrade TypeScript to v5.x                   |
+| 4    | Critical | Upgrade Node runtime to node20               |
+| 5    | Medium   | Update CI/CD workflows                       |
+| 6    | Medium   | Add unit tests for core modules              |
+| 7    | Low      | Update ESLint configuration                  |
+| 8    | Low      | Update documentation                         |
 
 ## Main Documentation
 
