@@ -18,7 +18,8 @@
   "private": true,
   "scripts": {
     "test": "NODE_ENV=testing jest",
-    "test:unit": "NODE_ENV=testing jest --testNamePattern='sets defaults'",
+    "test:unit": "NODE_ENV=testing jest --testNamePattern='sets defaults|handles missing'",
+    "test:integration": "NODE_ENV=testing jest --testNamePattern='GitHub Event'",
     "test-ci": "NODE_ENV=testing jest --ci --reporters=default --reporters=jest-junit",
     "clean": "rimraf dist",
     "build": "yarn run clean;tsc;ncc build lib/index.js -o dist --source-map --license licenses.txt",
@@ -131,6 +132,7 @@
     "jsonc-eslint-parser": "^2.1.0",
     "lint-staged": "^13.0.3",
     "markdownlint-cli": "^0.32.2",
+    "nock": "13",
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
     "semantic-release": "^19.0.5",
