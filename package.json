@@ -18,6 +18,7 @@
   "private": true,
   "scripts": {
     "test": "NODE_ENV=testing jest",
+    "test:unit": "NODE_ENV=testing jest --testNamePattern='sets defaults'",
     "test-ci": "NODE_ENV=testing jest --ci --reporters=default --reporters=jest-junit",
     "clean": "rimraf dist",
     "build": "yarn run clean;tsc;ncc build lib/index.js -o dist --source-map --license licenses.txt",
@@ -29,7 +30,7 @@
     "lint:markdown:fix": "yarn lint:markdown --fix",
     "all": "yon run build && yon run format && yon run lint && yon run package && yon test",
     "commit": "git-cz",
-    "pre-commit": "yarn run lint:fix && lint-staged && yon run build && git add dist && yarn run generate-docs",
+    "pre-commit": "yarn run lint:fix && JIRA_BASE_URL=https://mock.atlassian.net JIRA_API_TOKEN=mock-token JIRA_USER_EMAIL=mock@example.com yarn test:unit && lint-staged && yon run build && git add dist && yarn run generate-docs",
     "pre-push": "yarn format",
     "preversion": "echo 'Running test';yon test",
     "version": "echo 'Run versioning commands';yon generate-docs;echo \"::set-output name=tag::v${npm_package_version}\"",
