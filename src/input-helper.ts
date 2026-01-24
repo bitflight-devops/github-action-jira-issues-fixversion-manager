@@ -2,9 +2,33 @@ import * as path from 'node:path';
 
 import * as core from '@actions/core';
 
-import { Args, JiraAuthConfig } from './@types';
+import type { Args, JiraAuthConfig } from './@types';
 import * as fsHelper from './fs-helper';
 
+/**
+ * Parses and validates GitHub Action inputs from environment variables and action inputs.
+ *
+ * Retrieves configuration from the following sources (in order of precedence):
+ * - Environment variables: `JIRA_BASE_URL`, `JIRA_API_TOKEN`, `JIRA_USER_EMAIL`, `GITHUB_TOKEN`, `GITHUB_WORKSPACE`
+ * - Action inputs: `jira_base_url`, `jira_api_token`, `jira_user_email`, `token`, `projects`,
+ *   `projects_ignore`, `fix_versions`, `issues`, `fail_on_error`
+ *
+ * @returns The validated action arguments containing Jira configuration, GitHub token,
+ *          project filters, fix versions, issue keys, and error handling preferences.
+ * @throws {Error} If `JIRA_BASE_URL` environment variable or `jira_base_url` input is not provided.
+ * @throws {Error} If `JIRA_API_TOKEN` environment variable or `jira_api_token` input is not provided.
+ * @throws {Error} If `JIRA_USER_EMAIL` environment variable or `jira_user_email` input is not provided.
+ * @throws {Error} If `GITHUB_WORKSPACE` environment variable is not defined.
+ * @throws {Error} If the GitHub workspace directory does not exist.
+ *
+ * @example
+ * ```typescript
+ * // In a GitHub Action context with proper environment variables set:
+ * const inputs = getInputs();
+ * console.log(inputs.config.baseUrl); // 'https://company.atlassian.net'
+ * console.log(inputs.fixVersions);    // ['v1.0.0', 'v1.1.0']
+ * ```
+ */
 export function getInputs(): Args {
   const result = {} as unknown as Args;
   const jiraConfig = {} as unknown as JiraAuthConfig;

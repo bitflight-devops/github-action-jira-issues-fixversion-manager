@@ -12,35 +12,25 @@
  * ```
  * yarn test
  * ```
- *
- * **Record mode (captures real Jira responses for fixtures):**
- * ```
- * JIRA_RECORD_MODE=true \
- * JIRA_BASE_URL=https://your-instance.atlassian.net \
- * JIRA_API_TOKEN=your-api-token \
- * JIRA_USER_EMAIL=your@email.com \
- * yarn test
- * ```
- *
- * After recording, commit the generated fixtures in `__tests__/fixtures/recorded/`
  */
 
 import * as path from 'node:path';
 
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Args } from '../src/@types';
+import type { Args } from '../src/@types';
 import { Action } from '../src/action';
 import * as fsHelper from '../src/fs-helper';
 import * as inputHelper from '../src/input-helper';
-import { isRecordMode, setupJiraMock, teardownJiraMock } from './mocks/jira-api';
+import { setupJiraMock, teardownJiraMock } from './mocks/jira-api';
 
 const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
 const gitHubWorkspace = path.resolve('/checkout-tests/workspace');
 
-// Use mock URL unless in record mode with real credentials
-const baseUrl = process.env.JIRA_BASE_URL || 'https://mock.atlassian.net';
+// Use mock URL
+const baseUrl = 'https://mock.atlassian.net';
 
 // Inputs for mock @actions/core
 let inputs = {} as Record<string, string>;
@@ -49,25 +39,154 @@ const [owner, repo] = (process.env.GITHUB_REPOSITORY || 'test-owner/test-repo').
 // Shallow clone original @actions/github context
 const originalContext = { ...github.context };
 
+// Define mock data inline (vi.mock is hoisted, so we need to define it inline)
+const mockIssueUnicorn = {
+  id: '123456',
+  self: `${baseUrl}/rest/api/2/issue/123456`,
+  key: 'UNICORN-8403',
+  fields: {
+    fixVersions: [] as { name: string }[],
+    project: { key: 'UNICORN' },
+  },
+};
+
+const mockIssueTest = {
+  id: '123457',
+  self: `${baseUrl}/rest/api/2/issue/123457`,
+  key: 'TEST-123',
+  fields: {
+    fixVersions: [] as { name: string }[],
+    project: { key: 'TEST' },
+  },
+};
+
+const mockProjects = new Map([
+  ['UNICORN', { id: 10000, key: 'UNICORN', name: 'Unicorn Project' }],
+  ['TEST', { id: 10001, key: 'TEST', name: 'Test Project' }],
+]);
+
+const mockVersions = new Map<string, Map<string, string>>([
+  ['UNICORN', new Map()],
+  ['TEST', new Map()],
+]);
+
+let versionIdCounter = 10001;
+
+// Mock the Jira class to avoid HTTP requests entirely
+// Vitest 4.x requires class syntax or explicit function constructors for mocked classes
+vi.mock('../src/Jira', () => {
+  return {
+    default: class MockJira {
+      baseUrl = baseUrl;
+      token = 'mock-token';
+      email = 'mock@example.com';
+      projectKeyToId = new Map<string, number>();
+      client = {};
+
+      async getIssue(issueId: string) {
+        if (issueId === 'UNICORN-8403') return mockIssueUnicorn;
+        if (issueId === 'TEST-123') return mockIssueTest;
+        // Generate a default response for any issue
+        const projectKey = issueId.split('-')[0];
+        return {
+          id: '999999',
+          self: `${baseUrl}/rest/api/2/issue/999999`,
+          key: issueId,
+          fields: {
+            fixVersions: [],
+            project: { key: projectKey },
+          },
+        };
+      }
+
+      async getProjectByKey(key: string) {
+        const project = mockProjects.get(key);
+        if (project) {
+          return project.id;
+        }
+        // Generate a default project
+        const id = 10000 + mockProjects.size;
+        mockProjects.set(key, { id, key, name: `${key} Project` });
+        return id;
+      }
+
+      async getFixVersions(projectIdOrKey: string) {
+        return mockVersions.get(projectIdOrKey) || new Map();
+      }
+
+      async projectHasFixVersionsFromList(projectIdOrKey: string, fixVersions: string | string[]) {
+        const fixVersionsArray = Array.isArray(fixVersions) ? fixVersions : fixVersions.toUpperCase().split(',');
+        const projectVersions = mockVersions.get(projectIdOrKey) || new Map();
+        const existingVersions: string[] = [];
+
+        for (const versionName of projectVersions.keys()) {
+          const versionNameUppercase = versionName.toUpperCase();
+          if (fixVersionsArray.some((e) => e.toUpperCase() === versionNameUppercase)) {
+            existingVersions.push(versionNameUppercase);
+          }
+        }
+
+        return existingVersions;
+      }
+
+      async createFixVersion(projectId: number, fixVersion: string) {
+        // Find project key by ID
+        let projectKey = '';
+        for (const [key, project] of mockProjects) {
+          if (project.id === projectId) {
+            projectKey = key;
+            break;
+          }
+        }
+
+        if (projectKey) {
+          const versions = mockVersions.get(projectKey) || new Map();
+          versions.set(fixVersion, String(versionIdCounter++));
+          mockVersions.set(projectKey, versions);
+        }
+
+        return true;
+      }
+
+      async updateIssueFixVersions(issueIdOrKey: string, fixVersions: string[]) {
+        // Update the mock issue data
+        let issue: typeof mockIssueUnicorn | undefined;
+        if (issueIdOrKey === 'UNICORN-8403') {
+          issue = mockIssueUnicorn;
+        } else if (issueIdOrKey === 'TEST-123') {
+          issue = mockIssueTest;
+        }
+
+        if (issue) {
+          // Add fix versions to the issue
+          const existingVersions = issue.fields.fixVersions || [];
+          const newVersions = fixVersions
+            .filter((fv) => !existingVersions.some((ev) => ev.name === fv))
+            .map((fv) => ({ name: fv }));
+          issue.fields.fixVersions = [...existingVersions, ...newVersions];
+        }
+
+        return {};
+      }
+    },
+  };
+});
+
 describe('jira ticket transition', () => {
   beforeAll(() => {
-    jest.setTimeout(50_000);
-
-    // Set up Jira API mocking (or recording in record mode)
+    // Set up Jira API mocking data
     setupJiraMock(baseUrl);
 
-    // Set required environment variables if not in record mode
-    if (!isRecordMode()) {
-      process.env.JIRA_BASE_URL = baseUrl;
-      process.env.JIRA_API_TOKEN = process.env.JIRA_API_TOKEN || 'mock-token';
-      process.env.JIRA_USER_EMAIL = process.env.JIRA_USER_EMAIL || 'mock@example.com';
-    }
+    // Set required environment variables
+    process.env.JIRA_BASE_URL = baseUrl;
+    process.env.JIRA_API_TOKEN = 'mock-token';
+    process.env.JIRA_USER_EMAIL = 'mock@example.com';
 
     // Mock getInput
-    jest.spyOn(core, 'getInput').mockImplementation((name: string) => {
+    vi.spyOn(core, 'getInput').mockImplementation((name: string) => {
       return inputs[name] || '';
     });
-    jest.spyOn(core, 'getBooleanInput').mockImplementation((name: string) => {
+    vi.spyOn(core, 'getBooleanInput').mockImplementation((name: string) => {
       const regMatTrue = /(true|True|TRUE)/;
       const regMatFalse = /(false|False|FALSE)/;
       if (regMatTrue.test(inputs[name])) {
@@ -84,13 +203,13 @@ describe('jira ticket transition', () => {
     });
 
     // Mock error/warning/info/debug
-    jest.spyOn(core, 'error').mockImplementation(console.log);
-    jest.spyOn(core, 'warning').mockImplementation(console.log);
-    jest.spyOn(core, 'info').mockImplementation(console.log);
-    jest.spyOn(core, 'debug').mockImplementation(console.log);
+    vi.spyOn(core, 'error').mockImplementation(console.log);
+    vi.spyOn(core, 'warning').mockImplementation(console.log);
+    vi.spyOn(core, 'info').mockImplementation(console.log);
+    vi.spyOn(core, 'debug').mockImplementation(console.log);
 
     // Mock github context
-    jest.spyOn(github.context, 'repo', 'get').mockImplementation(() => {
+    vi.spyOn(github.context, 'repo', 'get').mockImplementation(() => {
       return {
         owner,
         repo,
@@ -101,7 +220,7 @@ describe('jira ticket transition', () => {
     github.context.sha = '1234567890123456789012345678901234567890';
 
     // Mock ./fs-helper directoryExistsSync()
-    jest.spyOn(fsHelper, 'directoryExistsSync').mockImplementation((fspath: string) => fspath === gitHubWorkspace);
+    vi.spyOn(fsHelper, 'directoryExistsSync').mockImplementation((fspath: string) => fspath === gitHubWorkspace);
 
     // GitHub workspace
     process.env.GITHUB_WORKSPACE = gitHubWorkspace;
@@ -114,11 +233,20 @@ describe('jira ticket transition', () => {
     inputs.fail_on_error = 'false';
     inputs.jira_base_url = baseUrl;
 
+    // Reset mock issue data
+    mockIssueUnicorn.fields.fixVersions = [];
+    mockIssueTest.fields.fixVersions = [];
+
+    // Reset mock versions
+    mockVersions.set('UNICORN', new Map());
+    mockVersions.set('TEST', new Map());
+    versionIdCounter = 10001;
+
     core.info(JSON.stringify({ fail_on_error: inputs.fail_on_error, jira_base_url: inputs.jira_base_url }));
   });
 
   afterAll(() => {
-    // Save recorded fixtures if in record mode
+    // Clean up mock data
     teardownJiraMock();
 
     // Restore GitHub workspace
@@ -132,7 +260,7 @@ describe('jira ticket transition', () => {
     github.context.sha = originalContext.sha;
 
     // Restore
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('sets defaults', () => {
