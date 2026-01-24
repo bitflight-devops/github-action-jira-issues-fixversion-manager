@@ -79,3 +79,33 @@ This action will add the supplied list of FixVersions to the list of Jira Issue 
 TODO:
 
 - [ ] Add a `operation` input that can take an `add`, `set`, or `remove` modifier for the list of fixversions, for how to treat the list of FixVersions supplied. Append would add any new fixversions to the issues fixversions list, replace removes existing fix versions first, and remove would remove any fix versions from the issue that are supplied from the input list of fix_versions
+
+## Development
+
+### Prerequisites
+
+- Node.js >= 22.0.0
+- Yarn package manager
+- Docker (for E2E tests)
+
+### Available Scripts
+
+```bash
+yarn build        # Build the action (Rollup ESM bundle)
+yarn test         # Run unit tests (Vitest)
+yarn lint         # Check linting (Biome)
+yarn lint:fix     # Auto-fix linting issues
+yarn format       # Format code (Biome)
+yarn e2e:all      # Run full E2E test suite
+```
+
+### Tooling
+
+- **Biome** for linting and formatting (replaces ESLint + Prettier)
+- **Vitest** for unit testing (replaces Jest)
+- **Rollup** for bundling (ESM output)
+
+### Node Version Note
+
+- Development requires **Node 22+**
+- GitHub Actions runtime uses **Node 20** (GitHub doesn't support node22 yet)

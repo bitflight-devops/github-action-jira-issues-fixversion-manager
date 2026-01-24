@@ -365,4 +365,5 @@ UI testing is brittle and slow. REST API testing is:
 
 - [Jira REST API Documentation](https://developer.atlassian.com/cloud/jira/platform/rest/v2/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Atlassian Docker Images](https://hub.docker.com/r/atlassian/jira-software)
+- [haxqer/jira Docker Image](https://hub.docker.com/r/haxqer/jira) - Third-party Jira Data Center image used by this project (`haxqer/jira:9.17.5`)
+- [Atlassian Docker Images](https://hub.docker.com/r/atlassian/jira-software) - Official images (for reference; not used in this project)
