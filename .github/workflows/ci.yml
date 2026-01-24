@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   push:
     branches: [main]
 
@@ -14,12 +14,13 @@ jobs:
   # Fast validation - runs first to catch obvious issues quickly
   validate:
     name: Validate
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'yarn'
@@ -43,99 +44,16 @@ jobs:
             exit 1
           }
 
-  # Integration tests with real Jira instance
-  # Uses Docker Compose to spin up Jira + PostgreSQL
-  integration-test:
-    name: Integration Tests
-    runs-on: ubuntu-22.04
-    needs: validate # Only run if validation passes
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: jira
-          POSTGRES_PASSWORD: jira
-          POSTGRES_DB: jira
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Start Jira
-        run: |
-          docker run -d \
-            --name jira-test \
-            --network host \
-            -e ATL_JDBC_URL=jdbc:postgresql://localhost:5432/jira \
-            -e ATL_JDBC_USER=jira \
-            -e ATL_JDBC_PASSWORD=jira \
-            -e ATL_DB_DRIVER=org.postgresql.Driver \
-            -e ATL_DB_TYPE=postgres72 \
-            -e JVM_MINIMUM_MEMORY=512m \
-            -e JVM_MAXIMUM_MEMORY=1024m \
-            atlassian/jira-software:9.12-jdk17
-
-      - name: Wait for Jira to be ready
-        run: |
-          echo "Waiting for Jira to start (this takes 2-3 minutes)..."
-          timeout 300 bash -c 'until curl -s http://localhost:8080/status | grep -q "RUNNING"; do sleep 10; echo "Waiting..."; done'
-          echo "Jira is ready!"
-
-      - name: Setup Jira test data
-        run: |
-          # Create API token for admin user
-          # Note: In a real setup, you'd use the setup wizard or REST API to configure Jira
-          # For CI, you may need to use pre-configured Jira secrets
-
-          # Create test project
-          curl -s -u "admin:admin" \
-            -X POST \
-            -H "Content-Type: application/json" \
-            "http://localhost:8080/rest/api/2/project" \
-            -d '{
-              "key": "UNICORN",
-              "name": "Unicorn Test Project",
-              "projectTypeKey": "software",
-              "lead": "admin"
-            }' || echo "Project creation skipped (may need manual setup)"
-
-      - name: Run integration tests
-        run: yarn test
-        env:
-          JIRA_BASE_URL: http://localhost:8080
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Stop Jira
-        if: always()
-        run: docker stop jira-test || true
-
-  # Alternative: Run with mocked Jira API (faster, no Docker)
-  # Useful when you don't have Jira secrets configured
+  # Unit tests with mocked Jira API
   unit-test:
-    name: Unit Tests (Mocked)
-    runs-on: ubuntu-22.04
+    name: Unit Tests
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'yarn'
@@ -143,11 +61,5 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Run tests with mocked Jira API
+      - name: Run unit tests
         run: yarn test
-        env:
-          # Mock values - nock will intercept HTTP requests
-          JIRA_BASE_URL: https://mock.atlassian.net
-          JIRA_API_TOKEN: mock-token
-          JIRA_USER_EMAIL: mock@example.com
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

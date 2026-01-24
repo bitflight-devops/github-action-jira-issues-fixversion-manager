@@ -17,42 +17,42 @@ This action will add the supplied list of FixVersions to the list of Jira Issue 
 - uses: bitflight-devops/github-action-jira-issues-fixversion-manager@v1.0.0
   with:
     # The github token used for authenticating to GitHub
-    token: ''
+    token: ""
 
     # A comma-separated list of FixVersions, if the FixVersion doesn't exist it will
     # be created
-    fix_versions: ''
+    fix_versions: ""
 
     # A comma-separated list of Jira issue keys
-    issues: ''
+    issues: ""
 
     # A comma separated list of project names to include in the results by, i.e.
     # DEVOPS,PROJECT1
-    projects: ''
+    projects: ""
 
     # A comma separated list of project names to exclude from the results by, i.e.
     # INTERNAL,PROJECT2
-    projects_ignore: ''
+    projects_ignore: ""
 
     # When parsing commit messages, include merge and pull messages. This is disabled
     # by default, to exclude tickets that may be included or fixed in other branches
     # or pull requests.
     # Default: false
-    include_merge_messages: ''
+    include_merge_messages: ""
 
     # The Jira cloud base url including protocol i.e. 'https://company.atlassian.net'
     # or use environment variable JIRA_BASE_URL
-    jira_base_url: ''
+    jira_base_url: ""
 
     # The Jira cloud user email address or use environment variable JIRA_USER_EMAIL
-    jira_user_email: ''
+    jira_user_email: ""
 
     # The Jira cloud user api token or use environment variable JIRA_API_TOKEN
-    jira_api_token: ''
+    jira_api_token: ""
 
     # If there is an error during transition, the action will error out.
     # Default: false
-    fail_on_error: ''
+    fail_on_error: ""
 ```
 
 <!-- end usage -->

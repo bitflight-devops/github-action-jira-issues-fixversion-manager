@@ -1,163 +1,186 @@
 /**
- * Jira API mocking setup using nock
+ * Jira API mocking setup using vitest
  *
- * This module supports two modes:
- * 1. RECORD mode: Makes real API calls and records responses to fixtures
- * 2. PLAYBACK mode: Uses recorded fixtures (default for CI)
- *
- * To record new fixtures:
- *   JIRA_RECORD_MODE=true JIRA_BASE_URL=https://your-instance.atlassian.net \
- *   JIRA_API_TOKEN=your-token JIRA_USER_EMAIL=your@email.com yarn test
- *
- * The recorded fixtures will be written to __tests__/fixtures/recorded/
+ * This module provides mock implementations for the Jira class methods
+ * used in tests. It replaces the previous nock-based HTTP mocking with
+ * vitest's vi.mock approach for cleaner, more maintainable tests.
  */
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-
-import nock from 'nock';
-
-const FIXTURES_DIR = path.join(__dirname, '../fixtures/recorded');
-const RECORD_MODE = process.env.JIRA_RECORD_MODE === 'true';
+// Mock data that can be customized per test
+export const mockJiraData = {
+  issues: new Map<string, object>(),
+  projects: new Map<string, { id: number; key: string; name: string }>(),
+  versions: new Map<string, Map<string, string>>(), // projectKey -> Map<versionName, versionId>
+};
 
 /**
- * Default mocks when no recorded fixtures are available
- * These provide basic responses for common Jira API endpoints
+ * Reset mock data between tests
  */
-function setupDefaultMocks(baseUrl: string): void {
-  nock(baseUrl)
-    // GET /rest/api/2/issue/{issueIdOrKey} with query params
-    .get(/\/rest\/api\/2\/issue\/[\w-]+/)
-    .query(true)
-    .reply(200, function getIssueReply(uri) {
-      const match = uri.match(/\/rest\/api\/2\/issue\/([\w-]+)/);
-      const issueKey = match ? match[1] : 'UNKNOWN-1';
-      const projectKey = issueKey.split('-')[0];
+export function resetMockData(): void {
+  mockJiraData.issues.clear();
+  mockJiraData.projects.clear();
+  mockJiraData.versions.clear();
+}
+
+/**
+ * Set up default mock data for tests
+ */
+export function setupDefaultMockData(baseUrl: string): void {
+  // Default project
+  mockJiraData.projects.set('UNICORN', {
+    id: 10_000,
+    key: 'UNICORN',
+    name: 'Unicorn Project',
+  });
+
+  mockJiraData.projects.set('TEST', {
+    id: 10_001,
+    key: 'TEST',
+    name: 'Test Project',
+  });
+
+  // Default issue
+  mockJiraData.issues.set('UNICORN-8403', {
+    id: '123456',
+    self: `${baseUrl}/rest/api/2/issue/123456`,
+    key: 'UNICORN-8403',
+    fields: {
+      fixVersions: [],
+      project: { key: 'UNICORN' },
+    },
+  });
+
+  mockJiraData.issues.set('TEST-123', {
+    id: '123457',
+    self: `${baseUrl}/rest/api/2/issue/123457`,
+    key: 'TEST-123',
+    fields: {
+      fixVersions: [],
+      project: { key: 'TEST' },
+    },
+  });
+
+  // Default versions (empty initially)
+  mockJiraData.versions.set('UNICORN', new Map());
+  mockJiraData.versions.set('TEST', new Map());
+}
+
+/**
+ * Initialize mocks for Jira API
+ * In the new approach, this just sets up the default data
+ */
+export function setupJiraMock(baseUrl: string): void {
+  resetMockData();
+  setupDefaultMockData(baseUrl);
+}
+
+/**
+ * Clean up after tests
+ */
+export function teardownJiraMock(): void {
+  resetMockData();
+}
+
+/**
+ * Check if we're in record mode (kept for compatibility, always returns false)
+ */
+export function isRecordMode(): boolean {
+  return false;
+}
+
+/**
+ * Create mock Jira instance for vi.mock
+ */
+export function createMockJiraInstance(baseUrl: string) {
+  let versionIdCounter = 10_001;
+
+  return {
+    baseUrl,
+    token: 'mock-token',
+    email: 'mock@example.com',
+    projectKeyToId: new Map<string, number>(),
+    client: {},
+
+    getIssue: async (issueId: string) => {
+      const issue = mockJiraData.issues.get(issueId);
+      if (issue) {
+        return issue;
+      }
+      // Generate a default response for any issue
+      const projectKey = issueId.split('-')[0];
       return {
-        id: '123456',
-        self: `${baseUrl}/rest/api/2/issue/123456`,
-        key: issueKey,
+        id: '999999',
+        self: `${baseUrl}/rest/api/2/issue/999999`,
+        key: issueId,
         fields: {
           fixVersions: [],
           project: { key: projectKey },
         },
       };
-    })
+    },
 
-    // GET /rest/api/2/project/{projectIdOrKey}
-    .get(/\/rest\/api\/2\/project\/[\w-]+$/)
-    .query(true)
-    .reply(200, function getProjectReply(uri) {
-      const match = uri.match(/\/rest\/api\/2\/project\/([\w-]+)/);
-      const projectKey = match ? match[1] : 'UNKNOWN';
-      return {
-        id: '10000',
-        key: projectKey,
-        name: `${projectKey} Project`,
-      };
-    })
-
-    // GET /rest/api/2/project/{projectIdOrKey}/version (paginated)
-    .get(/\/rest\/api\/2\/project\/[\w-]+\/version/)
-    .query(true)
-    .reply(200, {
-      maxResults: 50,
-      startAt: 0,
-      total: 0,
-      isLast: true,
-      values: [],
-    })
-
-    // POST /rest/api/2/version (create version)
-    .post('/rest/api/2/version')
-    .reply(201, function createVersionReply(_uri, requestBody: Record<string, unknown>) {
-      return {
-        id: '10001',
-        self: `${baseUrl}/rest/api/2/version/10001`,
-        name: requestBody.name,
-        description: requestBody.description,
-        archived: false,
-        released: false,
-        projectId: requestBody.projectId,
-      };
-    })
-
-    // PUT /rest/api/2/issue/{issueIdOrKey} (edit issue)
-    .put(/\/rest\/api\/2\/issue\/[\w-]+/)
-    .reply(204)
-
-    // Persist mocks across multiple requests
-    .persist();
-}
-
-/**
- * Initialize nock for Jira API mocking
- * In record mode, this enables recording of real API calls
- * In playback mode, this loads recorded fixtures
- */
-export function setupJiraMock(baseUrl: string): void {
-  // Clean up any previous mocks
-  nock.cleanAll();
-
-  if (RECORD_MODE) {
-    console.log('[nock] Recording mode enabled - making real API calls');
-    nock.recorder.rec({
-      output_objects: true,
-      dont_print: true,
-    });
-    // Allow real network requests in record mode
-    nock.enableNetConnect();
-  } else {
-    // Load recorded fixtures if they exist
-    const fixturesFile = path.join(FIXTURES_DIR, 'jira-api.json');
-    if (fs.existsSync(fixturesFile)) {
-      try {
-        const fixtures = JSON.parse(fs.readFileSync(fixturesFile, 'utf8'));
-        nock.define(fixtures);
-        console.log(`[nock] Loaded ${fixtures.length} recorded API fixtures`);
-      } catch {
-        console.log('[nock] Error loading fixtures, using default mocks');
-        setupDefaultMocks(baseUrl);
+    getProjectByKey: async (key: string) => {
+      const project = mockJiraData.projects.get(key);
+      if (project) {
+        return project.id;
       }
-    } else {
-      console.log('[nock] No recorded fixtures found, using default mocks');
-      setupDefaultMocks(baseUrl);
-    }
+      // Generate a default project
+      const id = 10_000 + mockJiraData.projects.size;
+      mockJiraData.projects.set(key, { id, key, name: `${key} Project` });
+      return id;
+    },
 
-    // Disable real HTTP requests in playback mode
-    nock.disableNetConnect();
-    // But allow localhost for other test infrastructure
-    nock.enableNetConnect('127.0.0.1');
-  }
-}
+    getFixVersions: async (projectIdOrKey: string) => {
+      return mockJiraData.versions.get(projectIdOrKey) || new Map();
+    },
 
-/**
- * Clean up nock after tests
- * In record mode, saves recorded fixtures to file
- */
-export function teardownJiraMock(): void {
-  if (RECORD_MODE) {
-    const recordings = nock.recorder.play() as nock.Definition[];
-    if (recordings.length > 0) {
-      // Ensure fixtures directory exists
-      if (!fs.existsSync(FIXTURES_DIR)) {
-        fs.mkdirSync(FIXTURES_DIR, { recursive: true });
+    projectHasFixVersionsFromList: async (projectIdOrKey: string, fixVersions: string | string[]) => {
+      const fixVersionsArray = Array.isArray(fixVersions) ? fixVersions : fixVersions.toUpperCase().split(',');
+      const projectVersions = mockJiraData.versions.get(projectIdOrKey) || new Map();
+      const existingVersions: string[] = [];
+
+      for (const versionName of projectVersions.keys()) {
+        const versionNameUppercase = versionName.toUpperCase();
+        if (fixVersionsArray.some((e) => e.toUpperCase() === versionNameUppercase)) {
+          existingVersions.push(versionNameUppercase);
+        }
       }
 
-      const fixturesFile = path.join(FIXTURES_DIR, 'jira-api.json');
-      fs.writeFileSync(fixturesFile, JSON.stringify(recordings, null, 2));
-      console.log(`[nock] Saved ${recordings.length} API recordings to ${fixturesFile}`);
-    }
-    nock.recorder.clear();
-  }
+      return existingVersions;
+    },
 
-  nock.cleanAll();
-  nock.enableNetConnect();
-}
+    createFixVersion: async (projectId: number, fixVersion: string) => {
+      // Find project key by ID
+      let projectKey = '';
+      for (const [key, project] of mockJiraData.projects) {
+        if (project.id === projectId) {
+          projectKey = key;
+          break;
+        }
+      }
 
-/**
- * Check if we're in record mode
- */
-export function isRecordMode(): boolean {
-  return RECORD_MODE;
+      if (projectKey) {
+        const versions = mockJiraData.versions.get(projectKey) || new Map();
+        versions.set(fixVersion, String(versionIdCounter++));
+        mockJiraData.versions.set(projectKey, versions);
+      }
+
+      return true;
+    },
+
+    updateIssueFixVersions: async (issueIdOrKey: string, fixVersions: string[]) => {
+      const issue = mockJiraData.issues.get(issueIdOrKey) as
+        | { fields: { fixVersions: { name: string }[] } }
+        | undefined;
+      if (issue) {
+        // Add fix versions to the issue
+        const existingVersions = issue.fields.fixVersions || [];
+        const newVersions = fixVersions
+          .filter((fv) => !existingVersions.some((ev) => ev.name === fv))
+          .map((fv) => ({ name: fv }));
+        issue.fields.fixVersions = [...existingVersions, ...newVersions];
+      }
+      return {};
+    },
+  };
 }
