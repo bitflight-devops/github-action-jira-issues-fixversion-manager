@@ -8,7 +8,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/node_modules", "!**/dist", "!**/lib", "!**/coverage", "!**/e2e/dist", "!**/e2e/**/*.js", "!**/*.d.ts", "!**/commitlint.config.js", "!**/CHANGELOG.md", "!**/licenses.txt", "!**/.markdownlint.json", "!**/.markdownlintignore", "!**/.cspell.json", "!**/tsconfig.json", "!**/tsconfig.*.json"]
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/lib", "!**/coverage", "!**/e2e/dist", "!**/*.d.ts", "!**/commitlint.config.js", "!**/CHANGELOG.md", "!**/licenses.txt", "!**/.markdownlint.json", "!**/.markdownlintignore", "!**/.cspell.json", "!**/tsconfig.json", "!**/tsconfig.*.json"]
   },
   "formatter": {
     "enabled": true,

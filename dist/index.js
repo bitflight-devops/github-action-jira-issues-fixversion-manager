@@ -32463,7 +32463,7 @@ function toCommaDelimitedString(strSet) {
  * ```
  */
 function nullIfEmpty(str) {
-    if (!(str && Array.isArray(str))) {
+    if (!str || !Array.isArray(str)) {
         return null;
     }
     if (str.length === 0) {
