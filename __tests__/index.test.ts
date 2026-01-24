@@ -61,8 +61,8 @@ const mockIssueTest = {
 };
 
 const mockProjects = new Map([
-  ['UNICORN', { id: 10000, key: 'UNICORN', name: 'Unicorn Project' }],
-  ['TEST', { id: 10001, key: 'TEST', name: 'Test Project' }],
+  ['UNICORN', { id: 10_000, key: 'UNICORN', name: 'Unicorn Project' }],
+  ['TEST', { id: 10_001, key: 'TEST', name: 'Test Project' }],
 ]);
 
 const mockVersions = new Map<string, Map<string, string>>([
@@ -70,7 +70,7 @@ const mockVersions = new Map<string, Map<string, string>>([
   ['TEST', new Map()],
 ]);
 
-let versionIdCounter = 10001;
+let versionIdCounter = 10_001;
 
 // Mock the Jira class to avoid HTTP requests entirely
 // Vitest 4.x requires class syntax or explicit function constructors for mocked classes
@@ -105,7 +105,7 @@ vi.mock('../src/Jira', () => {
           return project.id;
         }
         // Generate a default project
-        const id = 10000 + mockProjects.size;
+        const id = 10_000 + mockProjects.size;
         mockProjects.set(key, { id, key, name: `${key} Project` });
         return id;
       }
@@ -240,9 +240,14 @@ describe('jira ticket transition', () => {
     // Reset mock versions
     mockVersions.set('UNICORN', new Map());
     mockVersions.set('TEST', new Map());
-    versionIdCounter = 10001;
+    versionIdCounter = 10_001;
 
-    core.info(JSON.stringify({ fail_on_error: inputs.fail_on_error, jira_base_url: inputs.jira_base_url }));
+    core.info(
+      JSON.stringify({
+        fail_on_error: inputs.fail_on_error,
+        jira_base_url: inputs.jira_base_url,
+      }),
+    );
   });
 
   afterAll(() => {

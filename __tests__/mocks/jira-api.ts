@@ -28,13 +28,13 @@ export function resetMockData(): void {
 export function setupDefaultMockData(baseUrl: string): void {
   // Default project
   mockJiraData.projects.set('UNICORN', {
-    id: 10000,
+    id: 10_000,
     key: 'UNICORN',
     name: 'Unicorn Project',
   });
 
   mockJiraData.projects.set('TEST', {
-    id: 10001,
+    id: 10_001,
     key: 'TEST',
     name: 'Test Project',
   });
@@ -92,7 +92,7 @@ export function isRecordMode(): boolean {
  * Create mock Jira instance for vi.mock
  */
 export function createMockJiraInstance(baseUrl: string) {
-  let versionIdCounter = 10001;
+  let versionIdCounter = 10_001;
 
   return {
     baseUrl,
@@ -125,7 +125,7 @@ export function createMockJiraInstance(baseUrl: string) {
         return project.id;
       }
       // Generate a default project
-      const id = 10000 + mockJiraData.projects.size;
+      const id = 10_000 + mockJiraData.projects.size;
       mockJiraData.projects.set(key, { id, key, name: `${key} Project` });
       return id;
     },

@@ -273,7 +273,6 @@ export default class EventManager {
       applyIssueList.push(
         new Issue(issueKey, this.jira, this.argv).build().then(async (issueObj) => {
           await issueObj.apply();
-          return undefined;
         }),
       );
     }

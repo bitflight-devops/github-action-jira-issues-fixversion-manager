@@ -207,9 +207,9 @@ export default class Issue {
         await this.jira.updateIssueFixVersions(this.issue, this.fixVersions);
         this.afterVersions = await this.getIssueFixVersions(true);
         core.info(
-          `Changed ${this.issue} FixVersions from ${JSON.stringify(this.beforeVersions || [])} to ${JSON.stringify(
-            this.afterVersions || [],
-          )}.`,
+          `Changed ${this.issue} FixVersions from ${JSON.stringify(
+            this.beforeVersions || [],
+          )} to ${JSON.stringify(this.afterVersions || [])}.`,
         );
       } catch (error) {
         core.error(`Failed applying FixVersions for ${this.issue}`);
@@ -343,7 +343,9 @@ export default class Issue {
     // const issueObjectMeta = await this.jira.getIssueMetaData(this.issue)
     // core.debug(`Issue meta: ${JSON.stringify(issueObjectMeta)}`)
 
-    this.issueObject = await this.jira.getIssue(this.issue, { fields: ['fixVersions'] });
+    this.issueObject = await this.jira.getIssue(this.issue, {
+      fields: ['fixVersions'],
+    });
     return this.issueObject;
   }
 }
