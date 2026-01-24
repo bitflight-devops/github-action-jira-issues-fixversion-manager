@@ -33003,8 +33003,8 @@ class EventManager {
     /**
      * Updates fixVersions for all matched Jira issues in parallel.
      *
-     * @returns A promise that resolves when all issue updates complete.
-     *          The array contains void entries for each processed issue.
+     * @returns A promise that resolves to an array of void values when all
+     *          issue updates complete.
      *
      * @throws {Error} Propagates errors from individual issue updates only if
      *                 `failOnError` is `true`. Otherwise, errors are logged

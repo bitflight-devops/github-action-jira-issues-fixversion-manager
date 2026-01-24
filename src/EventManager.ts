@@ -234,8 +234,8 @@ export default class EventManager {
   /**
    * Updates fixVersions for all matched Jira issues in parallel.
    *
-   * @returns A promise that resolves when all issue updates complete.
-   *          The array contains void entries for each processed issue.
+   * @returns A promise that resolves to an array of void values when all
+   *          issue updates complete.
    *
    * @throws {Error} Propagates errors from individual issue updates only if
    *                 `failOnError` is `true`. Otherwise, errors are logged
@@ -266,9 +266,9 @@ export default class EventManager {
    * await manager.updateJiraFixVersion();
    * ```
    */
-  async updateJiraFixVersion(): Promise<undefined[]> {
+  async updateJiraFixVersion(): Promise<void[]> {
     const issues = this.getIssueSetFromString(this.argv.issues);
-    const applyIssueList: Promise<undefined>[] = [];
+    const applyIssueList: Promise<void>[] = [];
     for (const issueKey of issues) {
       applyIssueList.push(
         new Issue(issueKey, this.jira, this.argv).build().then(async (issueObj) => {
