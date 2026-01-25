@@ -23,10 +23,14 @@ Usage example in a workflow:
 
 ### Core Classes (src/)
 
-- **`Jira`** - Wrapper around `jira.js` Version2Client. Handles all Jira API calls including fetching/creating versions and updating issue fixVersions.
-- **`Issue`** - Represents a single Jira issue. Fetches current fixVersions, applies new versions, and tracks before/after state for reporting.
-- **`EventManager`** - Parses issue keys from input, applies project filters (include/exclude), and orchestrates the fixVersion update process.
-- **`Action`** - Entry point. Creates Jira client and EventManager, executes the update workflow.
+- **`index.ts`** - Entry point that imports Action and input-helper, executes the action workflow, and handles top-level error reporting via `core.setFailed()`.
+- **`action.ts`** - Main action orchestrator. Creates Jira client and EventManager, executes the fixVersion update workflow.
+- **`Jira.ts`** - Wrapper around `jira.js` Version2Client. Handles all Jira API calls including fetching/creating versions and updating issue fixVersions.
+- **`Issue.ts`** - Represents a single Jira issue. Fetches current fixVersions, applies new versions, and tracks before/after state for reporting.
+- **`EventManager.ts`** - Parses issue keys from input, applies project filters (include/exclude), and orchestrates the fixVersion update process.
+- **`input-helper.ts`** - Parses and validates GitHub Action inputs from environment variables (`JIRA_BASE_URL`, `JIRA_API_TOKEN`, `JIRA_USER_EMAIL`, `GITHUB_TOKEN`, `GITHUB_WORKSPACE`) and action inputs (`jira_base_url`, `jira_api_token`, `jira_user_email`, `token`, `projects`, `projects_ignore`, `fix_versions`, `issues`, `fail_on_error`).
+- **`fs-helper.ts`** - File system utilities providing `existsSync()`, `directoryExistsSync()`, `fileExistsSync()`, and `loadFileSync()` with input validation and error handling.
+- **`utils.ts`** - General utility functions including `issueIdRegEx` (Jira issue key regex pattern), `isError()` (type guard for Node.js errors), `toCommaDelimitedString()`, `nullIfEmpty()`, and `formatDate()` (ISO 8601 date formatting).
 
 ### Key Dependency: jira.js
 
@@ -61,18 +65,28 @@ yarn lint:markdown      # Check markdown syntax
 yarn lint:markdown:fix  # Auto-fix markdown issues
 
 # Unit tests (Vitest, mocked Jira)
-yarn test
-yarn test:watch
-yarn test -- --testNamePattern="pattern" # Run specific test
+yarn test                                     # Run all tests
+yarn test:watch                               # Run tests in watch mode
+yarn test -- --testNamePattern="pattern"      # Run specific test by name
+yarn test:unit                                # Run unit tests only (sets defaults, handles missing)
+yarn test:integration                         # Run integration tests only (GitHub Event)
+yarn test-ci                                  # Run tests with JUnit reporter for CI (outputs junit.xml)
+
+# Full build + validation pipeline
+yarn all        # Build, format, lint, package, and test in sequence
+
+# Commit helper
+yarn commit     # Interactive conventional commit helper (git-cz)
 
 # E2E tests (requires Docker and Playwright)
 yarn e2e:up           # Start Jira + MySQL containers
-yarn e2e:setup        # Run Playwright setup wizard automation
+yarn e2e:setup        # Run Playwright setup wizard automation (headless Chromium)
+yarn e2e:setup:http   # Alternative HTTP-based Jira setup (non-Playwright, uses direct HTTP/database)
 yarn e2e:wait         # Wait for Jira API ready
 yarn e2e:seed         # Create test project/issues
 yarn e2e:test         # Run E2E test suite
 yarn e2e:logs         # Show Docker container logs
-yarn e2e:down         # Stop containers
+yarn e2e:down         # Stop containers and remove volumes
 yarn e2e:all          # Full E2E sequence (up -> setup -> wait -> seed -> test)
 yarn e2e:fast         # Fast E2E (restore from snapshots if valid, else full setup)
 
@@ -86,7 +100,11 @@ yarn e2e:snapshot:save    # Save current Docker volumes as snapshots
 
 ### Unit Tests
 
-Located in `__tests__/`. Uses Vitest with mocked Jira client via `vi.mock('../src/Jira')`. Mock data is inline in test files due to Vitest hoisting. Test fixtures are in `__tests__/fixtures/`.
+Located in `__tests__/`. Uses Vitest with mocked Jira client via `vi.mock('../src/Jira')`. Test fixtures are in `__tests__/fixtures/`.
+
+**Mock Infrastructure** (`__tests__/mocks/`):
+
+- `jira-api.ts` - Provides mock implementations for Jira class methods, including `mockJiraData` (in-memory storage for issues, projects, versions), `resetMockData()`, `setupDefaultMockData()`, and `createMockJiraInstance()` factory function for creating fully-mocked Jira clients.
 
 ### E2E Tests
 
@@ -94,15 +112,29 @@ Located in `e2e/`. Uses a Dockerized Jira Data Center instance (`haxqer/jira:9.1
 
 **E2E Scripts** (`e2e/scripts/`):
 
+- `e2e-config.ts` - Central E2E configuration interface. Defines `E2EConfig` type and `getE2EConfig()` function that returns Data Center config (basic auth) by default, or Jira Cloud config when `E2E_JIRA_EMAIL` and `E2E_JIRA_API_TOKEN` environment variables are set.
 - `setup-jira-playwright.ts` - Automates Jira setup wizard via headless Chromium (handles XSRF)
+- `setup-jira.ts` - Alternative HTTP-based Jira setup. Uses direct HTTP requests and database insertion to configure Jira without Playwright. Handles license generation via atlassian-agent, database license insertion, container restart, and admin account setup.
 - `jira-client.ts` - E2E test client using jira.js (same library as main action)
 - `seed-jira.ts` - Creates test project, versions, and issues
 - `wait-for-jira.ts` - Polls until Jira API is ready
-- `snapshot-*.ts` - Docker volume snapshot management for CI caching
+- `snapshot-check.ts` - Validates Docker volume snapshots
+- `snapshot-save.ts` - Saves Docker volumes as snapshots
+- `snapshot-restore.ts` - Restores Docker volumes from snapshots
 
 **E2E Test Files** (`e2e/tests/`):
 
 - `fixversion.e2e.test.ts` - Tests fixVersion creation and assignment via the Jira API
+
+## CI Workflows
+
+Located in `.github/workflows/`:
+
+- **`ci.yml`** - Main CI pipeline. Runs on PRs to main/develop and pushes to main. Includes validate job (type check, lint, build, verify dist up-to-date) and unit tests.
+- **`unit-tests.yml`** - Standalone unit test runner. Runs on PRs to main/develop and pushes to main. Executes `yarn test` and builds.
+- **`e2e-jira.yml`** - E2E tests with Dockerized Jira Data Center. Supports snapshot restore for faster runs. Has `skip_snapshots` workflow_dispatch input to force full setup.
+- **`build-e2e-snapshots.yml`** - Scheduled workflow (every 5 days at 3am UTC) to build and upload E2E Docker volume snapshots. Supports `force_rebuild` workflow_dispatch input.
+- **`push_code_linting.yml`** - Biome linting on pull requests with reviewdog integration for PR review comments.
 
 ## Build and TypeScript Configuration
 
