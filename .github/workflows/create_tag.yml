@@ -6,6 +6,9 @@ on:
     tags-ignore:
       - '**'
 
+permissions:
+  contents: write
+
 jobs:
   tag:
     runs-on: ubuntu-latest
@@ -50,6 +53,7 @@ jobs:
           ## and also creates a step output called 'tag' which is the new version
           set -x
           yarn version --patch --message "${CHANGELOG}"
+          echo "tag=v$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
 
       - name: Create a GitHub release
         uses: softprops/action-gh-release@v2.5.0
