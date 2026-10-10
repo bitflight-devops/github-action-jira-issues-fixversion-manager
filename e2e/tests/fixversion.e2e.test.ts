@@ -1,242 +1,112 @@
-/**
- * E2E tests for FixVersion management
- * Tests the action logic against a real Jira instance
- */
-import { getE2EConfig } from '../scripts/e2e-config';
-import { JiraE2EClient } from '../scripts/jira-client';
+/** E2E tests run the built GitHub Action; the API client only arranges fixtures and reads the resulting Jira state. */
+import { randomUUID } from 'node:crypto';
 
-describe('FixVersion E2E Tests', () => {
-  // Initialize config immediately so timeout values are available for test definitions
+import { getE2EConfig } from '../scripts/e2e-config';
+import { JiraE2EClient, type JiraVersion } from '../scripts/jira-client';
+import { runAction } from './run-action';
+
+describe('Packaged FixVersion action against Jira', () => {
   const config = getE2EConfig();
-  let client: JiraE2EClient;
-  const projectKey = 'E2E';
+  const client = new JiraE2EClient(config);
+  const projectKey = config.test.projectKey;
+  const runId = randomUUID();
+  let preservedVersion: JiraVersion;
 
   beforeAll(async () => {
-    client = new JiraE2EClient(config);
-
-    // Verify Jira is ready
     const serverInfo = await client.getServerInfo();
-    console.log(`Connected to Jira ${serverInfo.version}`);
-  }, 300000); // 5 minutes timeout for Jira readiness
+    console.log(`Testing the packaged action against Jira ${serverInfo.version}`);
+    preservedVersion = await client.createVersion(projectKey, `action-${runId}-preserved`);
+    expect(preservedVersion.id).toBeTruthy();
+  }, config.timeouts.testTimeout);
 
-  describe('Project and Version Setup', () => {
-    it(
-      'should have the test project',
-      async () => {
-        const project = await client.ensureProject(config.test.projectKey, config.test.projectName);
+  async function expectIssueVersions(issueKey: string, expected: JiraVersion[]) {
+    const issue = await client.getIssue(issueKey, ['fixVersions']);
+    const references = (versions: JiraVersion[]) =>
+      versions.map(({ id, name }) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    expect(references(issue.fields.fixVersions || [])).toEqual(references(expected));
+  }
 
-        expect(project).toBeDefined();
-        expect(project.key).toBe(config.test.projectKey);
-        expect(project.name).toBe(config.test.projectName);
-      },
-      config.timeouts.testTimeout,
-    );
+  it(
+    'adds a missing assignment when multiple requested versions include one already on the issue',
+    async () => {
+      const existingVersion = await client.createVersion(projectKey, `action-${runId}-existing`);
+      expect(existingVersion.id).toBeTruthy();
+      const issue = await client.createIssue(
+        projectKey,
+        `Packaged action existing version ${runId}`,
+        config.test.issueType,
+        [preservedVersion.name],
+      );
+      await expectIssueVersions(issue.key, [preservedVersion]);
 
-    it(
-      'should have the initial version',
-      async () => {
-        const versions = await client.listProjectVersions(projectKey);
-        const initialVersion = versions.find((v) => v.name === config.test.initialVersion);
+      await runAction(config, [issue.key], [preservedVersion.name, existingVersion.name]);
 
-        expect(initialVersion).toBeDefined();
-        expect(initialVersion?.name).toBe(config.test.initialVersion);
-        expect(initialVersion?.archived).toBe(false);
-      },
-      config.timeouts.testTimeout,
-    );
-  });
+      await expectIssueVersions(issue.key, [preservedVersion, existingVersion]);
+      const matchingVersions = (await client.listProjectVersions(projectKey)).filter(
+        (version) => version.name === existingVersion.name,
+      );
+      expect(matchingVersions).toHaveLength(1);
+      expect(matchingVersions[0].id).toBe(existingVersion.id);
+    },
+    config.timeouts.testTimeout,
+  );
 
-  describe('Version Creation', () => {
-    // Use timestamp suffix for unique version names across test runs
-    const testRunId = Date.now().toString().slice(-6);
+  it(
+    'creates one new version for multiple issues and can rerun without duplicating or replacing versions',
+    async () => {
+      const newVersionName = `action-${runId}-v2.0.0-beta.1+ci`;
+      expect((await client.listProjectVersions(projectKey)).some((version) => version.name === newVersionName)).toBe(
+        false,
+      );
+      const firstIssue = await client.createIssue(
+        projectKey,
+        `Packaged action first new version ${runId}`,
+        config.test.issueType,
+        [preservedVersion.name],
+      );
+      const secondIssue = await client.createIssue(
+        projectKey,
+        `Packaged action second new version ${runId}`,
+        config.test.issueType,
+      );
+      await expectIssueVersions(firstIssue.key, [preservedVersion]);
+      await expectIssueVersions(secondIssue.key, []);
 
-    it(
-      'should create a new patch version',
-      async () => {
-        const newVersion = `1.0.1-test${testRunId}`;
+      // Include a duplicate issue key to exercise the action's input deduplication as well.
+      const issues = [firstIssue.key, secondIssue.key, firstIssue.key];
+      await runAction(config, issues, [newVersionName]);
 
-        // Create the version
-        const version = await client.createVersion(projectKey, newVersion);
+      const matchingVersions = (await client.listProjectVersions(projectKey)).filter(
+        (version) => version.name === newVersionName,
+      );
+      expect(matchingVersions).toHaveLength(1);
+      const createdVersion = matchingVersions[0];
+      expect(createdVersion.id).toBeTruthy();
+      expect(createdVersion).toMatchObject({ archived: false, released: false });
+      await expectIssueVersions(firstIssue.key, [preservedVersion, createdVersion]);
+      await expectIssueVersions(secondIssue.key, [createdVersion]);
 
-        expect(version).toBeDefined();
-        expect(version.name).toBe(newVersion);
-        expect(version.archived).toBe(false);
-        expect(version.released).toBe(false);
+      // A new subprocess means no in-memory cache survives the rerun.
+      await runAction(config, issues, [newVersionName]);
 
-        // Verify it appears in the list
-        const versions = await client.listProjectVersions(projectKey);
-        const found = versions.find((v) => v.name === newVersion);
-        expect(found).toBeDefined();
-      },
-      config.timeouts.testTimeout,
-    );
+      const versionsAfterRerun = (await client.listProjectVersions(projectKey)).filter(
+        (version) => version.name === newVersionName,
+      );
+      expect(versionsAfterRerun).toHaveLength(1);
+      expect(versionsAfterRerun[0].id).toBe(createdVersion.id);
+      await expectIssueVersions(firstIssue.key, [preservedVersion, createdVersion]);
+      await expectIssueVersions(secondIssue.key, [createdVersion]);
+    },
+    config.timeouts.testTimeout * 2,
+  );
 
-    it(
-      'should create a new minor version',
-      async () => {
-        const newVersion = `1.1.0-test${testRunId}`;
-
-        const version = await client.createVersion(projectKey, newVersion);
-
-        expect(version).toBeDefined();
-        expect(version.name).toBe(newVersion);
-      },
-      config.timeouts.testTimeout,
-    );
-
-    it(
-      'should create a new major version',
-      async () => {
-        const newVersion = `2.0.0-test${testRunId}`;
-
-        const version = await client.createVersion(projectKey, newVersion);
-
-        expect(version).toBeDefined();
-        expect(version.name).toBe(newVersion);
-      },
-      config.timeouts.testTimeout,
-    );
-  });
-
-  describe('Version Idempotency', () => {
-    it(
-      'should handle existing version without error',
-      async () => {
-        const existingVersion = '1.0.0';
-
-        // This should return the existing version, not create a duplicate
-        const version = await client.ensureVersion(projectKey, existingVersion);
-
-        expect(version).toBeDefined();
-        expect(version.name).toBe(existingVersion);
-
-        // Verify no duplicates
-        const versions = await client.listProjectVersions(projectKey);
-        const matches = versions.filter((v) => v.name === existingVersion);
-        expect(matches.length).toBe(1);
-      },
-      config.timeouts.testTimeout,
-    );
-  });
-
-  describe('Issue FixVersion Management', () => {
-    it(
-      'should create issue with fixVersion',
-      async () => {
-        const testVersion = '1.2.0';
-
-        // Ensure version exists
-        await client.ensureVersion(projectKey, testVersion);
-
-        // Create issue with fixVersion
-        const issue = await client.createIssue(projectKey, 'Test issue with fixVersion', config.test.issueType, [
-          testVersion,
-        ]);
-
-        expect(issue).toBeDefined();
-        expect(issue.fields.fixVersions).toBeDefined();
-        expect(issue.fields.fixVersions?.length).toBeGreaterThan(0);
-        expect(issue.fields.fixVersions?.[0].name).toBe(testVersion);
-      },
-      config.timeouts.testTimeout,
-    );
-
-    it(
-      'should update issue fixVersion',
-      async () => {
-        const oldVersion = '1.0.0';
-        const newVersion = '1.2.1';
-
-        // Create version if needed
-        await client.ensureVersion(projectKey, newVersion);
-
-        // Create issue with old version
-        const issue = await client.createIssue(projectKey, 'Test issue for version update', config.test.issueType, [
-          oldVersion,
-        ]);
-
-        expect(issue.fields.fixVersions?.[0].name).toBe(oldVersion);
-
-        // Update to new version
-        await client.updateIssue(issue.key, {
-          fixVersions: [{ name: newVersion }],
-        });
-
-        // Verify update
-        const updatedIssue = await client.getIssue(issue.key, ['fixVersions', 'summary']);
-        expect(updatedIssue.fields.fixVersions?.[0].name).toBe(newVersion);
-      },
-      config.timeouts.testTimeout,
-    );
-
-    it(
-      'should find issues with specific fixVersion',
-      async () => {
-        const targetVersion = '1.3.0';
-
-        // Ensure version exists
-        await client.ensureVersion(projectKey, targetVersion);
-
-        // Create test issue
-        const issue = await client.createIssue(projectKey, `Issue for ${targetVersion}`, config.test.issueType, [
-          targetVersion,
-        ]);
-
-        // Search for issues with this version
-        const results = await client.searchIssues(`project = ${projectKey} AND fixVersion = "${targetVersion}"`, [
-          'key',
-          'summary',
-          'fixVersions',
-        ]);
-
-        expect(results.issues.length).toBeGreaterThan(0);
-        const found = results.issues.find((i) => i.key === issue.key);
-        expect(found).toBeDefined();
-      },
-      config.timeouts.testTimeout,
-    );
-  });
-
-  describe('Edge Cases', () => {
-    it(
-      'should handle version names with special characters',
-      async () => {
-        const versionName = 'v1.0.0-beta.1';
-
-        const version = await client.ensureVersion(projectKey, versionName);
-
-        expect(version).toBeDefined();
-        expect(version.name).toBe(versionName);
-      },
-      config.timeouts.testTimeout,
-    );
-
-    it(
-      'should list all versions for project',
-      async () => {
-        const versions = await client.listProjectVersions(projectKey);
-
-        expect(versions).toBeDefined();
-        expect(Array.isArray(versions)).toBe(true);
-        expect(versions.length).toBeGreaterThan(0);
-
-        // Should include our initial version
-        const hasInitial = versions.some((v) => v.name === config.test.initialVersion);
-        expect(hasInitial).toBe(true);
-      },
-      config.timeouts.testTimeout,
-    );
-
-    it(
-      'should handle empty fixVersions array',
-      async () => {
-        const issue = await client.createIssue(projectKey, 'Issue without fixVersion', config.test.issueType);
-
-        expect(issue).toBeDefined();
-        // fixVersions might be undefined or empty array
-        expect(!issue.fields.fixVersions || issue.fields.fixVersions.length === 0).toBe(true);
-      },
-      config.timeouts.testTimeout,
-    );
-  });
+  it(
+    'fails the action process when Jira rejects an issue and fail_on_error is enabled',
+    async () => {
+      await expect(runAction(config, [`${projectKey}-999999999`], [preservedVersion.name])).rejects.toThrow(
+        'Packaged action failed (exit code 1)',
+      );
+    },
+    config.timeouts.testTimeout,
+  );
 });

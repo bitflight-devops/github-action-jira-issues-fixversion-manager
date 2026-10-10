@@ -57,6 +57,12 @@ export default class Jira {
   projectKeyToId: Map<string, number>;
 
   /**
+   * Shares successful and pending version creations across parallel issue updates
+   * for the lifetime of this action. Failed creations are removed so they can be retried.
+   */
+  private readonly versionCreationPromises = new Map<string, Promise<boolean>>();
+
+  /**
    * Creates a new Jira client instance.
    *
    * @param conf - Configuration object containing Jira connection details.
@@ -185,17 +191,15 @@ export default class Jira {
     const fixVersionsExisting: string[] = [];
     core.debug(`Checking if Jira already has versions '${fixVersions}'`);
 
-    const pageVersion: Version2Models.PageVersion = await this.client.projectVersions.getProjectVersions(params);
+    const versions = await this.client.projectVersions.getProjectVersions(params);
 
-    if (pageVersion?.values && pageVersion.values.length > 0) {
-      for (const versionData of pageVersion.values) {
-        if (versionData.name) {
-          const versionNameUppercase: string = (versionData.name || '').toUpperCase();
-          core.debug(`Comparing Jira version '${versionData.name}' to '${fixVersionsArray.join(',')}'`);
-          if (fixVersionsArray.some((e) => e.toUpperCase() === versionNameUppercase)) {
-            core.debug(`Jira already has versionData '${versionNameUppercase}'`);
-            fixVersionsExisting.push(versionNameUppercase);
-          }
+    for (const versionData of versions) {
+      if (versionData.name) {
+        const versionNameUppercase = versionData.name.toUpperCase();
+        core.debug(`Comparing Jira version '${versionData.name}' to '${fixVersionsArray.join(',')}'`);
+        if (fixVersionsArray.some((e) => e.toUpperCase() === versionNameUppercase)) {
+          core.debug(`Jira already has versionData '${versionNameUppercase}'`);
+          fixVersionsExisting.push(versionNameUppercase);
         }
       }
     }
@@ -310,16 +314,14 @@ export default class Jira {
 
     const logMsg: string[] = [];
     const versionsAvailable = new Map<string, string>();
-    const pageVersion: Version2Models.PageVersion = await this.client.projectVersions.getProjectVersions(params);
+    const versions = await this.client.projectVersions.getProjectVersions(params);
 
-    if (pageVersion.values && pageVersion.values.length > 0) {
-      for (const version of pageVersion.values) {
-        logMsg.push(
-          `Project ${projectIdOrKey} includes version ${version.name} [Start: ${version.startDate}, Release: ${version.releaseDate}, ID: ${version.id}]`,
-        );
-        if (version.name && version.id) {
-          versionsAvailable.set(version.name, version.id);
-        }
+    for (const version of versions) {
+      logMsg.push(
+        `Project ${projectIdOrKey} includes version ${version.name} [Start: ${version.startDate}, Release: ${version.releaseDate}, ID: ${version.id}]`,
+      );
+      if (version.name && version.id) {
+        versionsAvailable.set(version.name, version.id);
       }
     }
 
@@ -334,7 +336,7 @@ export default class Jira {
    * This method performs the following operations:
    * 1. Extracts the project key from the issue key.
    * 2. Checks which versions already exist in the project.
-   * 3. Creates any missing versions in parallel.
+   * 3. Creates missing versions, sharing each creation across parallel issue updates.
    * 4. Adds all specified versions to the issue.
    *
    * Note: This method adds versions to the issue; it does not replace existing versions.
@@ -361,10 +363,20 @@ export default class Jira {
     if (!id) {
       throw new Error(`Project ${project} not found`);
     }
-    if (versionsToCreate.length > 0 && id) {
-      const promArray: Promise<boolean>[] = versionsToCreate.map(async (fV) => this.createFixVersion(id, fV));
-      await Promise.all(promArray);
-    }
+    await Promise.all(
+      versionsToCreate.map((versionName) => {
+        const key = `${id}:${versionName.toUpperCase()}`;
+        let creation = this.versionCreationPromises.get(key);
+        if (!creation) {
+          creation = this.createFixVersion(id, versionName).catch((error) => {
+            this.versionCreationPromises.delete(key);
+            throw error;
+          });
+          this.versionCreationPromises.set(key, creation);
+        }
+        return creation;
+      }),
+    );
 
     const update: FixVersions = fixVersions.map((fV) => {
       return { add: { name: fV } };

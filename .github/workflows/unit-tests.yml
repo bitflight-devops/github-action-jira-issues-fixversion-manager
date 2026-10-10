@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24.19.0'
           cache: 'yarn'
 
       - name: Install dependencies
@@ -32,3 +32,6 @@ jobs:
 
       - name: Build
         run: yarn build
+
+      - name: Verify the committed action bundle
+        run: git diff --exit-code -- dist

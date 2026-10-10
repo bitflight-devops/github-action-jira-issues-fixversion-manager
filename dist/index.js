@@ -48651,7 +48651,7 @@ function requireCommon () {
 
 		/**
 		* Selects a color for a debug namespace
-		* @param {String} namespace The namespace string for the for the debug instance to be colored
+		* @param {String} namespace The namespace string for the debug instance to be colored
 		* @return {Number|String} An ANSI color code for the given namespace
 		* @api private
 		*/
@@ -48677,6 +48677,8 @@ function requireCommon () {
 		function createDebug(namespace) {
 			let prevTime;
 			let enableOverride = null;
+			let namespacesCache;
+			let enabledCache;
 
 			function debug(...args) {
 				// Disabled?
@@ -48737,7 +48739,17 @@ function requireCommon () {
 			Object.defineProperty(debug, 'enabled', {
 				enumerable: true,
 				configurable: false,
-				get: () => enableOverride === null ? createDebug.enabled(namespace) : enableOverride,
+				get: () => {
+					if (enableOverride !== null) {
+						return enableOverride;
+					}
+					if (namespacesCache !== createDebug.namespaces) {
+						namespacesCache = createDebug.namespaces;
+						enabledCache = createDebug.enabled(namespace);
+					}
+
+					return enabledCache;
+				},
 				set: v => {
 					enableOverride = v;
 				}
@@ -48766,6 +48778,7 @@ function requireCommon () {
 		*/
 		function enable(namespaces) {
 			createDebug.save(namespaces);
+			createDebug.namespaces = namespaces;
 
 			createDebug.names = [];
 			createDebug.skips = [];
@@ -48783,7 +48796,7 @@ function requireCommon () {
 				namespaces = split[i].replace(/\*/g, '.*?');
 
 				if (namespaces[0] === '-') {
-					createDebug.skips.push(new RegExp('^' + namespaces.substr(1) + '$'));
+					createDebug.skips.push(new RegExp('^' + namespaces.slice(1) + '$'));
 				} else {
 					createDebug.names.push(new RegExp('^' + namespaces + '$'));
 				}
@@ -66124,6 +66137,11 @@ class Jira {
      */
     projectKeyToId;
     /**
+     * Shares successful and pending version creations across parallel issue updates
+     * for the lifetime of this action. Failed creations are removed so they can be retried.
+     */
+    versionCreationPromises = new Map();
+    /**
      * Creates a new Jira client instance.
      *
      * @param conf - Configuration object containing Jira connection details.
@@ -66241,16 +66259,14 @@ class Jira {
         const fixVersionsArray = Array.isArray(fixVersions) ? fixVersions : fixVersions.toUpperCase().split(',');
         const fixVersionsExisting = [];
         coreExports.debug(`Checking if Jira already has versions '${fixVersions}'`);
-        const pageVersion = await this.client.projectVersions.getProjectVersions(params);
-        if (pageVersion?.values && pageVersion.values.length > 0) {
-            for (const versionData of pageVersion.values) {
-                if (versionData.name) {
-                    const versionNameUppercase = (versionData.name || '').toUpperCase();
-                    coreExports.debug(`Comparing Jira version '${versionData.name}' to '${fixVersionsArray.join(',')}'`);
-                    if (fixVersionsArray.some((e) => e.toUpperCase() === versionNameUppercase)) {
-                        coreExports.debug(`Jira already has versionData '${versionNameUppercase}'`);
-                        fixVersionsExisting.push(versionNameUppercase);
-                    }
+        const versions = await this.client.projectVersions.getProjectVersions(params);
+        for (const versionData of versions) {
+            if (versionData.name) {
+                const versionNameUppercase = versionData.name.toUpperCase();
+                coreExports.debug(`Comparing Jira version '${versionData.name}' to '${fixVersionsArray.join(',')}'`);
+                if (fixVersionsArray.some((e) => e.toUpperCase() === versionNameUppercase)) {
+                    coreExports.debug(`Jira already has versionData '${versionNameUppercase}'`);
+                    fixVersionsExisting.push(versionNameUppercase);
                 }
             }
         }
@@ -66364,13 +66380,11 @@ class Jira {
         };
         const logMsg = [];
         const versionsAvailable = new Map();
-        const pageVersion = await this.client.projectVersions.getProjectVersions(params);
-        if (pageVersion.values && pageVersion.values.length > 0) {
-            for (const version of pageVersion.values) {
-                logMsg.push(`Project ${projectIdOrKey} includes version ${version.name} [Start: ${version.startDate}, Release: ${version.releaseDate}, ID: ${version.id}]`);
-                if (version.name && version.id) {
-                    versionsAvailable.set(version.name, version.id);
-                }
+        const versions = await this.client.projectVersions.getProjectVersions(params);
+        for (const version of versions) {
+            logMsg.push(`Project ${projectIdOrKey} includes version ${version.name} [Start: ${version.startDate}, Release: ${version.releaseDate}, ID: ${version.id}]`);
+            if (version.name && version.id) {
+                versionsAvailable.set(version.name, version.id);
             }
         }
         coreExports.debug(logMsg.join('\n'));
@@ -66383,7 +66397,7 @@ class Jira {
      * This method performs the following operations:
      * 1. Extracts the project key from the issue key.
      * 2. Checks which versions already exist in the project.
-     * 3. Creates any missing versions in parallel.
+     * 3. Creates missing versions, sharing each creation across parallel issue updates.
      * 4. Adds all specified versions to the issue.
      *
      * Note: This method adds versions to the issue; it does not replace existing versions.
@@ -66410,10 +66424,18 @@ class Jira {
         if (!id) {
             throw new Error(`Project ${project} not found`);
         }
-        if (versionsToCreate.length > 0 && id) {
-            const promArray = versionsToCreate.map(async (fV) => this.createFixVersion(id, fV));
-            await Promise.all(promArray);
-        }
+        await Promise.all(versionsToCreate.map((versionName) => {
+            const key = `${id}:${versionName.toUpperCase()}`;
+            let creation = this.versionCreationPromises.get(key);
+            if (!creation) {
+                creation = this.createFixVersion(id, versionName).catch((error) => {
+                    this.versionCreationPromises.delete(key);
+                    throw error;
+                });
+                this.versionCreationPromises.set(key, creation);
+            }
+            return creation;
+        }));
         const update = fixVersions.map((fV) => {
             return { add: { name: fV } };
         });
