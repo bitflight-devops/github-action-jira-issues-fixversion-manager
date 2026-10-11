@@ -8,7 +8,8 @@ This directory contains GitHub Actions workflow definitions for CI/CD automation
 | -------------------------------------------- | -------------------------- | ------------------------------------ |
 | `create_tag.yml` | Successful main-push Jira E2E | Publish tested commit/tag and dispatch release checks |
 | `publish_action.yml` | Stable tag push / manual | Verify published tag, version and action |
-| `pull_request_cleanup_tags_and_releases.yml` | PR closed / branch deleted | Clean up test tags and releases      |
+| `pull_request_cleanup_tags_and_releases.yml` | Manual / reusable call | Delete one verified test release and tag |
+| `test-release-publication.yml` | Workflow-changing PR / manual | Verify isolated publication and exact cleanup |
 | `push_code_linting.yml` | Pull request / manual | Strict Biome checks |
 
 ## Workflow Details
@@ -27,31 +28,13 @@ This read-only workflow verifies a stable version tag's commit, package version,
 
 ### pull_request_cleanup_tags_and_releases.yml
 
-**Name**: Pull Request - Cleanup Tags and Releases
+Cleanup is explicitly dispatched or called by the controlled publication test. Supply the exact `tag` in the form `vMAJOR.MINOR.PATCH-repair.RUN.ATTEMPT` and the full `expected_sha` recorded by the publisher. The workflow checks the tag target and prerelease status before deleting that release and tag. It preserves all production releases and workflow history.
 
-**Triggers**:
+If a deletion fails partway through, rerun with the same tag and SHA. Missing artifacts are treated as already removed; mismatched targets, stable releases and API permission failures stop cleanup.
 
-- Branch deletion (`delete` event)
-- Pull request closed
-- Manual dispatch with optional inputs
+### test-release-publication.yml
 
-**Purpose**: Removes test/preview tags and releases created during PR development.
-
-**Inputs** (manual dispatch):
-| Input | Required | Description |
-|-------|----------|-------------|
-| `regex` | No | Regex pattern to match tags for deletion |
-| `pr_number` | No | PR number to find associated tags |
-
-**Steps**:
-
-1. Uses `Broadshield/github-action-cleanup-releases-and-tags@main`
-2. Removes tags/releases matching the pattern or PR number
-
-**Environment**:
-
-- Runner: `ubuntu-latest`
-- Token: `github.token` (automatic)
+Changes to the cleanup/publication-test workflows run a controlled publication test on same-repository PRs. It can also be dispatched manually. The test creates a unique prerelease, attaches the checked-out packaged action, downloads and compares the artifact byte for byte, calls the cleanup workflow, and verifies that the exact test release and tag are absent. Each attempt uses a new run-specific tag and never updates an existing ref.
 
 ### push_code_linting.yml
 
