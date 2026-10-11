@@ -6,56 +6,25 @@ This directory contains GitHub Actions workflow definitions for CI/CD automation
 
 | Workflow                                     | Trigger                    | Purpose                              |
 | -------------------------------------------- | -------------------------- | ------------------------------------ |
-| `create_tag.yml`                             | Push to `main`             | Version bump and tag creation        |
-| `publish_action.yml`                         | Tag push                   | Publish action to GitHub Marketplace |
+| `create_tag.yml` | Successful main-push Jira E2E | Publish tested commit/tag and dispatch release checks |
+| `publish_action.yml` | Stable tag push / manual | Verify published tag, version and action |
 | `pull_request_cleanup_tags_and_releases.yml` | Manual / reusable call | Delete one verified test release and tag |
 | `test-release-publication.yml` | Workflow-changing PR / manual | Verify isolated publication and exact cleanup |
-| `push_code_linting.yml`                      | Pull request               | ESLint code review                   |
+| `push_code_linting.yml` | Pull request / manual | Strict Biome checks |
 
 ## Workflow Details
 
 ### create_tag.yml
 
-**Name**: Update Package Version and Create Tag
+A successful same-repository main-push Jira E2E run starts release preparation. The workflow checks out the tested SHA and rejects stale main, installs the frozen Yarn 1.22.22 lockfile on Node 24.19.0, checks types/lint/build parity, and selects the next unused stable patch version. Yarn's version lifecycle runs tests and generates versioned documentation. The new commit must retain the tested source, bundle, action metadata and lockfile.
 
-**Trigger**: Push to `main` branch (ignores tag pushes)
+Publication atomically pushes the release metadata commit and its exact `vX.Y.Z` tag without force. A separate job creates the GitHub release with generated notes or resumes an existing draft. Retry failed jobs to resume release creation without repeating the successful version/tag job.
 
-**Purpose**: Automatically versions and tags releases when code is merged to main.
-
-**Steps**:
-
-1. Checkout repository with full history
-2. Set up Node.js 16.x with Yarn cache
-3. Calculate next version using `mathieudutour/github-tag-action@v6`
-4. Install dependencies and build the project
-5. Commit built `dist/` folder
-6. Bump version using Yarn with changelog in commit message
-
-**Environment**:
-
-- Runner: `Ubuntu-20.04`
-- Node: `16.x`
-- Package Manager: Yarn
-
-**Outputs**: Creates a new git tag with format `vX.Y.Z`
+After publication, explicit workflow dispatch starts CI, standalone unit tests, lint, Jira E2E and release verification against the immutable tag. These checks belong to the published commit. This is necessary because GITHUB_TOKEN pushes do not trigger push workflows. Dispatch-triggered E2E cannot publish another release: the publisher requires a main push event.
 
 ### publish_action.yml
 
-**Name**: publish-action
-
-**Trigger**: Any tag push (`**`)
-
-**Purpose**: Publishes the GitHub Action for use in other workflows.
-
-**Steps**:
-
-1. Uses `technote-space/release-github-actions@v7.0.5` to:
-   - Create/update major version tags (e.g., `v1` points to latest `v1.x.x`)
-   - Package action for GitHub Marketplace
-
-**Environment**:
-
-- Runner: `ubuntu-latest`
+This read-only workflow verifies a stable version tag's commit, package version, packaged entry point and published release notes. It runs for stable version tag pushes or manual dispatch with an immutable tag selected. `create_tag.yml` owns publication; this workflow does not rebuild or move major/minor aliases. Consumers should select a reviewed immutable version or full commit SHA.
 
 ### pull_request_cleanup_tags_and_releases.yml
 
@@ -69,41 +38,11 @@ Changes to the cleanup/publication-test workflows run a controlled publication t
 
 ### push_code_linting.yml
 
-**Name**: Code Linting
+Pull requests and manual dispatch run a frozen install and Biome checks on Node 24.19.0. CI also performs type checking, unit tests and committed-bundle parity. The Jira workflow uses the shared official Jira/PostgreSQL fixture to exercise the packaged action and independently read back its effects.
 
-**Trigger**: Pull requests
+## Release sequence
 
-**Purpose**: Runs ESLint and reports issues as PR review comments.
-
-**Steps**:
-
-1. Checkout code
-2. Run ESLint via `reviewdog/action-eslint@v1`
-3. Report findings as GitHub PR review comments
-
-**Configuration**:
-
-- Reporter: `github-pr-review` (inline comments on PR)
-- ESLint config: Uses project's `.eslintrc.cjs`
-
-## Workflow Dependencies
-
-```
-Developer pushes to PR branch
-         │
-         ├─► push_code_linting.yml (lint check)
-         │
-         └─► PR merged to main
-                   │
-                   └─► create_tag.yml
-                             │
-                             └─► Creates tag vX.Y.Z
-                                       │
-                                       └─► publish_action.yml
-                                                 │
-                                                 └─► Updates v1 tag
-                                                     Publishes to Marketplace
-```
+Main push → successful Jira E2E → validated metadata commit and exact tag → GitHub release → explicit checks on the published tag. Publication jobs have `contents: write`; the dispatch job has `actions: write`. Verification workflows retain read access, with any additional permissions declared by their own jobs.
 
 ## Required Secrets
 
@@ -127,7 +66,7 @@ When adding new workflows:
 
 - `action.yml` - Action definition file
 - `package.json` - Contains version and scripts
-- `.eslintrc.cjs` - ESLint configuration
+- `biome.json` - Lint and formatting configuration
 
 ### claude-code-review.yml
 
