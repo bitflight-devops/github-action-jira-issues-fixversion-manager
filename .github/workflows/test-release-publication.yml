@@ -11,12 +11,7 @@ permissions:
 
 jobs:
   publish:
-    # Dependabot PR tokens are read-only; use manual dispatch for those changes.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.user.login != 'dependabot[bot]' &&
-       github.actor != 'dependabot[bot]')
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.publish.outputs.tag }}
