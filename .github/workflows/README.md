@@ -70,4 +70,4 @@ When adding new workflows:
 
 ### claude-code-review.yml
 
-Automated review accepts human contributors and the `dependabot[bot]` actor. Dependabot-triggered runs read Dependabot secrets, so configure `CLAUDE_CODE_OAUTH_TOKEN` under repository Settings → Secrets and variables → Dependabot as well as the Actions secret used by human-triggered runs. Keep the token in GitHub's secret stores. Verify a real Dependabot-triggered review after configuration; a successful human-triggered review does not establish that the bot received credentials.
+Automated review skips pull requests authored by `dependabot[bot]`, including when a human updates or reruns the pull request. Dependency updates remain covered by CI, unit tests, linting, and Jira E2E tests. Human-authored pull requests keep the existing automated review behavior and Actions secret configuration. No Dependabot review credentials are needed.
