@@ -50,7 +50,7 @@ Main push → successful Jira E2E → validated metadata commit and exact tag �
 | -------------- | ------------- | ------------------------------------- |
 | `GITHUB_TOKEN` | All workflows | Automatic token for GitHub API access |
 
-No additional secrets are required beyond the automatic `GITHUB_TOKEN`.
+Core CI and release workflows need no additional secrets beyond the automatic `GITHUB_TOKEN`. The existing human Claude review and interactive Claude workflows use `CLAUDE_CODE_OAUTH_TOKEN` from repository Actions secrets. Dependabot-authored PRs skip automated Claude review and need no Dependabot Claude secret.
 
 ## Adding New Workflows
 
@@ -67,3 +67,7 @@ When adding new workflows:
 - `action.yml` - Action definition file
 - `package.json` - Contains version and scripts
 - `biome.json` - Lint and formatting configuration
+
+### claude-code-review.yml
+
+Automated review skips pull requests authored by `dependabot[bot]`, including when a human updates or reruns the pull request. Dependency updates remain covered by CI, unit tests, linting, and Jira E2E tests. Human-authored pull requests keep the existing automated review behavior and Actions secret configuration. No Dependabot review credentials are needed.
