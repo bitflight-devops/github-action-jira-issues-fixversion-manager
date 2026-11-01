@@ -12,6 +12,8 @@ on:
 
 jobs:
   claude-review:
+    # Dependency updates are validated by CI, without spending review tokens.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
