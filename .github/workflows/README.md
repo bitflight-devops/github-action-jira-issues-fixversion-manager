@@ -6,121 +6,43 @@ This directory contains GitHub Actions workflow definitions for CI/CD automation
 
 | Workflow                                     | Trigger                    | Purpose                              |
 | -------------------------------------------- | -------------------------- | ------------------------------------ |
-| `create_tag.yml`                             | Push to `main`             | Version bump and tag creation        |
-| `publish_action.yml`                         | Tag push                   | Publish action to GitHub Marketplace |
-| `pull_request_cleanup_tags_and_releases.yml` | PR closed / branch deleted | Clean up test tags and releases      |
-| `push_code_linting.yml`                      | Pull request               | ESLint code review                   |
+| `create_tag.yml` | Successful main-push Jira E2E | Publish tested commit/tag and dispatch release checks |
+| `publish_action.yml` | Stable tag push / manual | Verify published tag, version and action |
+| `pull_request_cleanup_tags_and_releases.yml` | Manual / reusable call | Delete one verified test release and tag |
+| `test-release-publication.yml` | Workflow-changing PR / manual | Verify isolated publication and exact cleanup |
+| `push_code_linting.yml` | Pull request / manual | Strict Biome checks |
 
 ## Workflow Details
 
 ### create_tag.yml
 
-**Name**: Update Package Version and Create Tag
+A successful same-repository main-push Jira E2E run starts release preparation. The workflow checks out the tested SHA and rejects stale main, installs the frozen Yarn 1.22.22 lockfile on Node 24.19.0, checks types/lint/build parity, and selects the next unused stable patch version. Yarn's version lifecycle runs tests and generates versioned documentation. The new commit must retain the tested source, bundle, action metadata and lockfile.
 
-**Trigger**: Push to `main` branch (ignores tag pushes)
+Publication atomically pushes the release metadata commit and its exact `vX.Y.Z` tag without force. A separate job creates the GitHub release with generated notes or resumes an existing draft. Retry failed jobs to resume release creation without repeating the successful version/tag job.
 
-**Purpose**: Automatically versions and tags releases when code is merged to main.
-
-**Steps**:
-
-1. Checkout repository with full history
-2. Set up Node.js 16.x with Yarn cache
-3. Calculate next version using `mathieudutour/github-tag-action@v6`
-4. Install dependencies and build the project
-5. Commit built `dist/` folder
-6. Bump version using Yarn with changelog in commit message
-
-**Environment**:
-
-- Runner: `Ubuntu-20.04`
-- Node: `16.x`
-- Package Manager: Yarn
-
-**Outputs**: Creates a new git tag with format `vX.Y.Z`
+After publication, explicit workflow dispatch starts CI, standalone unit tests, lint, Jira E2E and release verification against the immutable tag. These checks belong to the published commit. This is necessary because GITHUB_TOKEN pushes do not trigger push workflows. Dispatch-triggered E2E cannot publish another release: the publisher requires a main push event.
 
 ### publish_action.yml
 
-**Name**: publish-action
-
-**Trigger**: Any tag push (`**`)
-
-**Purpose**: Publishes the GitHub Action for use in other workflows.
-
-**Steps**:
-
-1. Uses `technote-space/release-github-actions@v7.0.5` to:
-   - Create/update major version tags (e.g., `v1` points to latest `v1.x.x`)
-   - Package action for GitHub Marketplace
-
-**Environment**:
-
-- Runner: `ubuntu-latest`
+This read-only workflow verifies a stable version tag's commit, package version, packaged entry point and published release notes. It runs for stable version tag pushes or manual dispatch with an immutable tag selected. `create_tag.yml` owns publication; this workflow does not rebuild or move major/minor aliases. Consumers should select a reviewed immutable version or full commit SHA.
 
 ### pull_request_cleanup_tags_and_releases.yml
 
-**Name**: Pull Request - Cleanup Tags and Releases
+Cleanup is explicitly dispatched or called by the controlled publication test. Supply the exact `tag` in the form `vMAJOR.MINOR.PATCH-repair.RUN.ATTEMPT` and the full `expected_sha` recorded by the publisher. The workflow checks the tag target and prerelease status before deleting that release and tag. It preserves all production releases and workflow history.
 
-**Triggers**:
+If a deletion fails partway through, rerun with the same tag and SHA. Missing artifacts are treated as already removed; mismatched targets, stable releases and API permission failures stop cleanup.
 
-- Branch deletion (`delete` event)
-- Pull request closed
-- Manual dispatch with optional inputs
+### test-release-publication.yml
 
-**Purpose**: Removes test/preview tags and releases created during PR development.
-
-**Inputs** (manual dispatch):
-| Input | Required | Description |
-|-------|----------|-------------|
-| `regex` | No | Regex pattern to match tags for deletion |
-| `pr_number` | No | PR number to find associated tags |
-
-**Steps**:
-
-1. Uses `Broadshield/github-action-cleanup-releases-and-tags@main`
-2. Removes tags/releases matching the pattern or PR number
-
-**Environment**:
-
-- Runner: `ubuntu-latest`
-- Token: `github.token` (automatic)
+Changes to the cleanup/publication-test workflows run a controlled publication test on same-repository PRs. It can also be dispatched manually. The test creates a unique prerelease, attaches the checked-out packaged action, downloads and compares the artifact byte for byte, calls the cleanup workflow, and verifies that the exact test release and tag are absent. Each attempt uses a new run-specific tag and never updates an existing ref.
 
 ### push_code_linting.yml
 
-**Name**: Code Linting
+Pull requests and manual dispatch run a frozen install and Biome checks on Node 24.19.0. CI also performs type checking, unit tests and committed-bundle parity. The Jira workflow uses the shared official Jira/PostgreSQL fixture to exercise the packaged action and independently read back its effects.
 
-**Trigger**: Pull requests
+## Release sequence
 
-**Purpose**: Runs ESLint and reports issues as PR review comments.
-
-**Steps**:
-
-1. Checkout code
-2. Run ESLint via `reviewdog/action-eslint@v1`
-3. Report findings as GitHub PR review comments
-
-**Configuration**:
-
-- Reporter: `github-pr-review` (inline comments on PR)
-- ESLint config: Uses project's `.eslintrc.cjs`
-
-## Workflow Dependencies
-
-```
-Developer pushes to PR branch
-         │
-         ├─► push_code_linting.yml (lint check)
-         │
-         └─► PR merged to main
-                   │
-                   └─► create_tag.yml
-                             │
-                             └─► Creates tag vX.Y.Z
-                                       │
-                                       └─► publish_action.yml
-                                                 │
-                                                 └─► Updates v1 tag
-                                                     Publishes to Marketplace
-```
+Main push → successful Jira E2E → validated metadata commit and exact tag → GitHub release → explicit checks on the published tag. Publication jobs have `contents: write`; the dispatch job has `actions: write`. Verification workflows retain read access, with any additional permissions declared by their own jobs.
 
 ## Required Secrets
 
@@ -128,7 +50,7 @@ Developer pushes to PR branch
 | -------------- | ------------- | ------------------------------------- |
 | `GITHUB_TOKEN` | All workflows | Automatic token for GitHub API access |
 
-No additional secrets are required beyond the automatic `GITHUB_TOKEN`.
+Core CI and release workflows need no additional secrets beyond the automatic `GITHUB_TOKEN`. The existing human Claude review and interactive Claude workflows use `CLAUDE_CODE_OAUTH_TOKEN` from repository Actions secrets. Dependabot-authored PRs skip automated Claude review and need no Dependabot Claude secret.
 
 ## Adding New Workflows
 
@@ -144,4 +66,8 @@ When adding new workflows:
 
 - `action.yml` - Action definition file
 - `package.json` - Contains version and scripts
-- `.eslintrc.cjs` - ESLint configuration
+- `biome.json` - Lint and formatting configuration
+
+### claude-code-review.yml
+
+Automated review skips pull requests authored by `dependabot[bot]`, including when a human updates or reruns the pull request. Dependency updates remain covered by CI, unit tests, linting, and Jira E2E tests. Human-authored pull requests keep the existing automated review behavior and Actions secret configuration. No Dependabot review credentials are needed.
