@@ -50,7 +50,7 @@ Main push → successful Jira E2E → validated metadata commit and exact tag �
 | -------------- | ------------- | ------------------------------------- |
 | `GITHUB_TOKEN` | All workflows | Automatic token for GitHub API access |
 
-No additional secrets are required beyond the automatic `GITHUB_TOKEN`.
+Core CI and release workflows need no additional secrets beyond the automatic `GITHUB_TOKEN`. The existing human Claude review and interactive Claude workflows use `CLAUDE_CODE_OAUTH_TOKEN` from repository Actions secrets. Dependabot-authored PRs skip automated Claude review and need no Dependabot Claude secret.
 
 ## Adding New Workflows
 
